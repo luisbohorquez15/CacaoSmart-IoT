@@ -1,0 +1,1284 @@
+{
+ "uid": "cacao-lote",
+ "title": "CacaoSmart · 02 Lote de cultivo",
+ "description": "Microclima, suelo, riego y sombra (DEV-01, 02, 05, 06).",
+ "tags": [
+  "cacaosmart",
+  "cultivo"
+ ],
+ "timezone": "America/Bogota",
+ "editable": true,
+ "graphTooltip": 1,
+ "refresh": "1m",
+ "schemaVersion": 39,
+ "version": 1,
+ "time": {
+  "from": "now-6d",
+  "to": "now"
+ },
+ "timepicker": {
+  "refresh_intervals": [
+   "30s",
+   "1m",
+   "5m",
+   "15m"
+  ]
+ },
+ "annotations": {
+  "list": [
+   {
+    "builtIn": 1,
+    "datasource": {
+     "type": "grafana",
+     "uid": "-- Grafana --"
+    },
+    "enable": true,
+    "hide": true,
+    "iconColor": "rgba(0, 211, 255, 1)",
+    "name": "Annotations & Alerts",
+    "type": "dashboard"
+   },
+   {
+    "datasource": {
+     "type": "influxdb",
+     "uid": "influx-cacao"
+    },
+    "enable": false,
+    "iconColor": "#D4A24C",
+    "name": "Retroceso (comandos)",
+    "target": {
+     "refId": "Anno",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"command\" and r._field == \"cmd\")\n  |> map(fn: (r) => ({_time: r._time, text: r.device + \" ← \" + r._value}))"
+    }
+   },
+   {
+    "datasource": {
+     "type": "influxdb",
+     "uid": "influx-cacao"
+    },
+    "enable": false,
+    "iconColor": "#E5484D",
+    "name": "Alertas",
+    "target": {
+     "refId": "Anno2",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"alert\" and r._field == \"msg\")\n  |> map(fn: (r) => ({_time: r._time, text: r.device + \": \" + r._value}))"
+    }
+   }
+  ]
+ },
+ "panels": [
+  {
+   "type": "text",
+   "title": "",
+   "transparent": true,
+   "options": {
+    "mode": "html",
+    "content": "<div style=\"display:flex;align-items:center;gap:18px;padding:6px 4px\">\n<div style=\"font-size:38px\">🍫</div>\n<div><div style=\"font-size:22px;font-weight:700;letter-spacing:.3px\">CacaoSmart IoT · Lote 1 · Cultivo</div>\n<div style=\"opacity:.75;font-size:13px\">Nodos ESP32 reales (DEV-01, DEV-02) · Gemelos de polisombra (DEV-05) y bomba de goteo (DEV-06)</div></div></div>"
+   },
+   "id": 1,
+   "gridPos": {
+    "h": 3,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "id": 2,
+   "type": "row",
+   "title": "DEV-01 · Nodo microclima (ESP32 + DHT22 + LDR) · MQTT",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 3
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Temperatura y humedad relativa del dosel",
+   "description": "Riesgo de Moniliasis: HR > 88 % y T > 26 °C sostenidos 4 h.",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-01\" and r._field == \"temp_c\") or\n      (r.device == \"dev-01\" and r._field == \"hr_pct\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "line+area"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "#E5484D22",
+        "value": 26
+       }
+      ]
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-01/temp_c"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Temperatura"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#E8743B"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-01/hr_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Humedad relativa"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#4FA3D1"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 3,
+   "gridPos": {
+    "h": 8,
+    "w": 16,
+    "x": 0,
+    "y": 4
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "gauge",
+   "title": "HR actual (umbral Moniliasis 88 %)",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-01\" and r._field == \"hr_pct\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "min": 40,
+     "max": 100,
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "#F2C14E",
+        "value": null
+       },
+       {
+        "color": "#46A758",
+        "value": 70
+       },
+       {
+        "color": "#E5484D",
+        "value": 88
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showThresholdLabels": false,
+    "showThresholdMarkers": true,
+    "sizing": "auto"
+   },
+   "id": 4,
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 4
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Luminosidad bajo el dosel",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-01\" and r._field == \"luz_lux\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "lux",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-01/luz_lux"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Luz (lux)"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#F2C14E"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 5,
+   "gridPos": {
+    "h": 7,
+    "w": 16,
+    "x": 0,
+    "y": 12
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "state-timeline",
+   "title": "LED de aviso UV (actuador, Lazo 1)",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-01\" and r._field == \"led\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "#3A3F47",
+        "value": null
+       },
+       {
+        "color": "#46A758",
+        "value": 0.5
+       }
+      ]
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "OFF"
+        },
+        "1": {
+         "text": "ON"
+        }
+       }
+      }
+     ],
+     "custom": {
+      "fillOpacity": 80,
+      "lineWidth": 0
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-01/led"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "LED DEV-01"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showValue": "never",
+    "rowHeight": 0.8,
+    "mergeValues": true,
+    "alignValue": "left",
+    "legend": {
+     "showLegend": false
+    }
+   },
+   "id": 6,
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 16,
+    "y": 12
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "id": 7,
+   "type": "row",
+   "title": "DEV-02 · Nodo suelo y riego (ESP32 + sensor capacitivo + relé) · MQTT",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 19
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Humedad volumétrica del suelo vs umbral de riego",
+   "description": "Lazo 2: si la humedad cae bajo el umbral se consulta la lluvia de DEV-04 antes de regar.",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-02\" and r._field == \"humedad_suelo_pct\") or\n      (r.device == \"dev-02\" and r._field == \"umbral_pct\") or\n      (r.device == \"dev-09\" and r._field == \"humedad_suelo_ref_pct\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-02/humedad_suelo_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Humedad suelo"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#7FB069"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-02/umbral_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Umbral de riego"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#E5484D"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          6
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-09/humedad_suelo_ref_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Suelo ref. 2025 (DEV-09)"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8B8D98"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          6
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 8,
+   "gridPos": {
+    "h": 8,
+    "w": 16,
+    "x": 0,
+    "y": 20
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Batería del nodo",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-02\" and r._field == \"bateria_v\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "volt",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "line+area"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "#E5484D33",
+        "value": null
+       },
+       {
+        "color": "transparent",
+        "value": 3.5
+       }
+      ]
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-02/bateria_v"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Batería 18650"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#D4A24C"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 9,
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 20
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "state-timeline",
+   "title": "Electroválvula (relé) y bomba",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-02\" and r._field == \"valvula\") or\n      (r.device == \"dev-06\" and r._field == \"bomba\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "#3A3F47",
+        "value": null
+       },
+       {
+        "color": "#46A758",
+        "value": 0.5
+       }
+      ]
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "OFF"
+        },
+        "1": {
+         "text": "ON"
+        }
+       }
+      }
+     ],
+     "custom": {
+      "fillOpacity": 80,
+      "lineWidth": 0
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-02/valvula"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Válvula DEV-02"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-06/bomba"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Bomba DEV-06"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showValue": "never",
+    "rowHeight": 0.8,
+    "mergeValues": true,
+    "alignValue": "left",
+    "legend": {
+     "showLegend": false
+    }
+   },
+   "id": 10,
+   "gridPos": {
+    "h": 5,
+    "w": 24,
+    "x": 0,
+    "y": 28
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "id": 11,
+   "type": "row",
+   "title": "DEV-05 · Gemelo digital polisombra motorizada",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 33
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Radiación exterior vs filtrada por la malla",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-05\" and r._field == \"rad_ext_wm2\") or\n      (r.device == \"dev-05\" and r._field == \"rad_filtrada_wm2\") or\n      (r.device == \"dev-05\" and r._field == \"cierre_pct\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "watt",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-05/rad_ext_wm2"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Radiación exterior"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#F2A65A"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-05/rad_filtrada_wm2"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Radiación filtrada"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#C8A165"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-05/cierre_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Cierre malla"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8B5A2B"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       },
+       {
+        "id": "custom.lineInterpolation",
+        "value": "stepAfter"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 12,
+   "gridPos": {
+    "h": 8,
+    "w": 16,
+    "x": 0,
+    "y": 34
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Corriente del motor e índice UV",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-05\" and r._field == \"corriente_a\") or\n      (r.device == \"dev-05\" and r._field == \"uv_index\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-05/corriente_a"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Corriente motor"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8E9AAF"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "amp"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-05/uv_index"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Índice UV"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#B565D8"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "none"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 13,
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 34
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "id": 14,
+   "type": "row",
+   "title": "DEV-06 · Gemelo digital bomba y caudalímetro de goteo",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 42
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Caudal y presión de línea",
+   "description": "Interlock local: presión < 12 PSI con la bomba encendida = fuga -> parada de emergencia.",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-06\" and r._field == \"caudal_lpm\") or\n      (r.device == \"dev-06\" and r._field == \"presion_psi\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-06/caudal_lpm"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Caudal (L/min)"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#3BA99C"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-06/presion_psi"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Presión (PSI)"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8E9AAF"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "pressurepsi"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 15,
+   "gridPos": {
+    "h": 8,
+    "w": 16,
+    "x": 0,
+    "y": 43
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Consumo de agua del día",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-06\" and r._field == \"consumo_l\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "litre",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-06/consumo_l"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Consumo diario (L)"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#4FA3D1"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 16,
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 43
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  }
+ ],
+ "templating": {
+  "list": []
+ },
+ "links": [
+  {
+   "title": "Dashboards CacaoSmart",
+   "type": "dashboards",
+   "tags": [
+    "cacaosmart"
+   ],
+   "asDropdown": true,
+   "icon": "external link",
+   "includeVars": false,
+   "keepTime": true,
+   "targetBlank": false
+  },
+  {
+   "title": "Panel de control",
+   "type": "link",
+   "url": "/",
+   "icon": "dashboard",
+   "targetBlank": true
+  }
+ ]
+}

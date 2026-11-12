@@ -1,0 +1,23 @@
+# ================= ACL CacaoSmart IoT =================
+# Jerarquía:  cacaosmart/<region>/<zona>/<dispositivo>/<telemetry|status|command|alert>
+
+# Servicios internos (Telegraf, Node-RED): control total
+user service
+topic readwrite #
+topic read $SYS/#
+
+# Dispositivos (ESP32, gemelos digitales, datasets). El client-id DEBE ser el id del
+# dispositivo (p.ej. dev-01): cada uno sólo puede publicar en SUS propios tópicos.
+user device
+topic read cacaosmart/#
+pattern write cacaosmart/+/+/%c/telemetry
+pattern write cacaosmart/+/+/%c/status
+
+# Panel web público: sólo lectura
+user viewer
+topic read cacaosmart/#
+
+# Operador del panel: lectura + envío de comandos de retroceso
+user operador
+topic read cacaosmart/#
+topic write cacaosmart/+/+/+/command

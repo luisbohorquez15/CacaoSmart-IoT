@@ -1,0 +1,1233 @@
+{
+ "uid": "cacao-clima",
+ "title": "CacaoSmart · 04 Clima: API Azure Maps y datasets",
+ "description": "DEV-03/04 (HTTPS REST) y DEV-09 (histórico ERA5 2025).",
+ "tags": [
+  "cacaosmart",
+  "clima"
+ ],
+ "timezone": "America/Bogota",
+ "editable": true,
+ "graphTooltip": 1,
+ "refresh": "1m",
+ "schemaVersion": 39,
+ "version": 1,
+ "time": {
+  "from": "now-6d",
+  "to": "now"
+ },
+ "timepicker": {
+  "refresh_intervals": [
+   "30s",
+   "1m",
+   "5m",
+   "15m"
+  ]
+ },
+ "annotations": {
+  "list": [
+   {
+    "builtIn": 1,
+    "datasource": {
+     "type": "grafana",
+     "uid": "-- Grafana --"
+    },
+    "enable": true,
+    "hide": true,
+    "iconColor": "rgba(0, 211, 255, 1)",
+    "name": "Annotations & Alerts",
+    "type": "dashboard"
+   },
+   {
+    "datasource": {
+     "type": "influxdb",
+     "uid": "influx-cacao"
+    },
+    "enable": false,
+    "iconColor": "#D4A24C",
+    "name": "Retroceso (comandos)",
+    "target": {
+     "refId": "Anno",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"command\" and r._field == \"cmd\")\n  |> map(fn: (r) => ({_time: r._time, text: r.device + \" ← \" + r._value}))"
+    }
+   },
+   {
+    "datasource": {
+     "type": "influxdb",
+     "uid": "influx-cacao"
+    },
+    "enable": false,
+    "iconColor": "#E5484D",
+    "name": "Alertas",
+    "target": {
+     "refId": "Anno2",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"alert\" and r._field == \"msg\")\n  |> map(fn: (r) => ({_time: r._time, text: r.device + \": \" + r._value}))"
+    }
+   }
+  ]
+ },
+ "panels": [
+  {
+   "type": "text",
+   "title": "",
+   "transparent": true,
+   "options": {
+    "mode": "html",
+    "content": "<div style=\"display:flex;align-items:center;gap:18px;padding:6px 4px\">\n<div style=\"font-size:38px\">🍫</div>\n<div><div style=\"font-size:22px;font-weight:700;letter-spacing:.3px\">CacaoSmart IoT · Clima · API Azure Maps y Datasets</div>\n<div style=\"opacity:.75;font-size:13px\">DEV-03 Current Conditions · DEV-04 Hourly Forecast (polling HTTPS/REST) · DEV-09 Histórico 2025 (replay MQTT)</div></div></div>"
+   },
+   "id": 1,
+   "gridPos": {
+    "h": 3,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "id": 2,
+   "type": "row",
+   "title": "DEV-03 · Condiciones actuales (Azure Maps)",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 3
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Temperatura, sensación térmica y punto de rocío",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-03\" and r._field == \"temp_c\") or\n      (r.device == \"dev-03\" and r._field == \"sensacion_c\") or\n      (r.device == \"dev-03\" and r._field == \"punto_rocio_c\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-03/temp_c"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Temperatura"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#E8743B"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-03/sensacion_c"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Sensación (RealFeel)"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#E5484D"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          6
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-03/punto_rocio_c"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Punto de rocío"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#4FA3D1"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 3,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 4
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Índice UV y nubosidad",
+   "description": "Lazo 1: UV ≥ 8 cierra la polisombra al 80 %.",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-03\" and r._field == \"uv_index\") or\n      (r.device == \"dev-03\" and r._field == \"nubosidad_pct\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "line+area"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "#B565D833",
+        "value": 8
+       }
+      ]
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-03/uv_index"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Índice UV"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#B565D8"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "none"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-03/nubosidad_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Nubosidad"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8B8D98"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 4,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 4
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Viento y ráfagas",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-03\" and r._field == \"viento_kmh\") or\n      (r.device == \"dev-03\" and r._field == \"rafaga_kmh\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "velocitykmh",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-03/viento_kmh"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Viento"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#3BA99C"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-03/rafaga_kmh"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Ráfaga"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8E9AAF"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          6
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 5,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 12
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Presión y lluvia observada",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-03\" and r._field == \"presion_hpa\") or\n      (r.device == \"dev-03\" and r._field == \"lluvia_1h_mm\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-03/presion_hpa"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Presión"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8E9AAF"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "pressurehpa"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-03/lluvia_1h_mm"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Lluvia última hora"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5B8DEF"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "lengthmm"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       },
+       {
+        "id": "custom.drawStyle",
+        "value": "bars"
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 60
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 6,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 12
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "id": 7,
+   "type": "row",
+   "title": "DEV-04 · Pronóstico horario (Azure Maps)",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 20
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Probabilidad de lluvia (próxima hora, 3 h y máx. 12 h)",
+   "description": "< 30 % riego normal (15 min) · 30-65 % riego reducido (8 min) · > 65 % riego inhibido (ahorro hídrico).",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-04\" and r._field == \"prob_lluvia_pct\") or\n      (r.device == \"dev-04\" and r._field == \"prob_lluvia_3h_pct\") or\n      (r.device == \"dev-04\" and r._field == \"prob_lluvia_max_12h\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": 0,
+      "thresholdsStyle": {
+       "mode": "line+area"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "min": 0,
+     "max": 100,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "#F5A52422",
+        "value": 30
+       },
+       {
+        "color": "#5B8DEF33",
+        "value": 65
+       }
+      ]
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-04/prob_lluvia_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Próxima hora"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5B8DEF"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-04/prob_lluvia_3h_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Máx. 3 h"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#4FA3D1"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-04/prob_lluvia_max_12h"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Máx. 12 h"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8B8D98"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          6
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 8,
+   "gridPos": {
+    "h": 8,
+    "w": 16,
+    "x": 0,
+    "y": 21
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Lluvia esperada 12 h",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-04\" and r._field == \"precip_12h_mm\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "lengthmm",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-04/precip_12h_mm"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Precipitación 12 h"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5B8DEF"
+        }
+       },
+       {
+        "id": "custom.drawStyle",
+        "value": "bars"
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 60
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 9,
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 21
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "id": 10,
+   "type": "row",
+   "title": "DEV-09 · Histórico climático cosecha 2025 (ERA5 vía Open-Meteo) · replay",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 29
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Temperatura y HR de referencia 2025",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-09\" and r._field == \"temp_ref_c\") or\n      (r.device == \"dev-09\" and r._field == \"hr_ref_pct\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-09/temp_ref_c"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "T. 2025"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#E8743B"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-09/hr_ref_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "HR 2025"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#4FA3D1"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 11,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 30
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Evapotranspiración FAO-56 y humedad de suelo 2025",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-09\" and r._field == \"et0_dia_mm\") or\n      (r.device == \"dev-09\" and r._field == \"humedad_suelo_ref_pct\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-09/et0_dia_mm"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "ET0 acumulada 24 h"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#7FB069"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "lengthmm"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-09/humedad_suelo_ref_pct"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Suelo 0-7 cm"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8B5A2B"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 12,
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 30
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Radiación y lluvia 2025",
+   "description": "",
+   "targets": [
+    {
+     "refId": "A",
+     "query": "from(bucket: \"cacaosmart\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\")\n  |> filter(fn: (r) => (r.device == \"dev-09\" and r._field == \"radiacion_wm2\") or\n      (r.device == \"dev-09\" and r._field == \"precipitacion_mm\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.device + \"/\" + r._field}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "gradientMode": "opacity",
+      "spanNulls": 3600000,
+      "showPoints": "never",
+      "lineInterpolation": "smooth",
+      "axisSoftMin": null,
+      "thresholdsStyle": {
+       "mode": "off"
+      },
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-09/radiacion_wm2"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Radiación"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#F2A65A"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "watt"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dev-09/precipitacion_mm"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Lluvia"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5B8DEF"
+        }
+       },
+       {
+        "id": "unit",
+        "value": "lengthmm"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       },
+       {
+        "id": "custom.drawStyle",
+        "value": "bars"
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 60
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "mean",
+      "max",
+      "min",
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "id": 13,
+   "gridPos": {
+    "h": 7,
+    "w": 24,
+    "x": 0,
+    "y": 38
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-cacao"
+   }
+  }
+ ],
+ "templating": {
+  "list": []
+ },
+ "links": [
+  {
+   "title": "Dashboards CacaoSmart",
+   "type": "dashboards",
+   "tags": [
+    "cacaosmart"
+   ],
+   "asDropdown": true,
+   "icon": "external link",
+   "includeVars": false,
+   "keepTime": true,
+   "targetBlank": false
+  },
+  {
+   "title": "Panel de control",
+   "type": "link",
+   "url": "/",
+   "icon": "dashboard",
+   "targetBlank": true
+  }
+ ]
+}

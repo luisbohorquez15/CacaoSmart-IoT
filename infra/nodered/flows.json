@@ -1,0 +1,562 @@
+[
+  {
+    "id": "mqtt_broker",
+    "type": "mqtt-broker",
+    "name": "Mosquitto CacaoSmart",
+    "broker": "${MQTT_HOST}",
+    "port": "${MQTT_PORT}",
+    "clientid": "nodered-orquestador",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "30",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "tab_api",
+    "type": "tab",
+    "label": "1 · API Azure Maps (DEV-03/04)",
+    "disabled": false,
+    "info": "Dispositivos tipo API: consumen Azure Maps Weather por HTTPS/REST y publican por MQTT."
+  },
+  {
+    "id": "c1",
+    "type": "comment",
+    "z": "tab_api",
+    "name": "DEV-03 Current Conditions · DEV-04 Hourly Forecast (HTTPS REST -> MQTT)",
+    "info": "Polling configurable por retroceso: SET_INTERVAL, POWER, SET_LOCATION, POLL_NOW, AHORRO_AGUA",
+    "x": 330,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "inj_init",
+    "type": "inject",
+    "z": "tab_api",
+    "name": "arranque",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 3,
+    "topic": "",
+    "x": 110,
+    "y": 100,
+    "wires": [
+      [
+        "fn_init"
+      ]
+    ]
+  },
+  {
+    "id": "fn_init",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Inicialización",
+    "func": "// Inicialización: mapa dispositivo -> zona (jerarquía de tópicos) y configuración de las APIs\nconst zones = {\n  'dev-01': 'lote1', 'dev-02': 'lote1', 'dev-05': 'lote1', 'dev-06': 'lote1',\n  'dev-03': 'clima', 'dev-04': 'clima',\n  'dev-07': 'beneficio', 'dev-08': 'beneficio',\n  'dev-09': 'historico', 'dev-10': 'historico'\n};\nglobal.set('zones', zones);\nglobal.set('region', 'santander');\nconst base = { power: 'on', mode: 'auto', lat: Number(env.get('FARM_LAT') || 6.8817), lon: Number(env.get('FARM_LON') || -73.4103), last: 0, seq: 0, ok: 1 };\nif (!flow.get('dev-03')) flow.set('dev-03', { ...base, interval_s: 600, name: 'Estación meteo exterior (Azure Maps Current Conditions)' });\nif (!flow.get('dev-04')) flow.set('dev-04', { ...base, interval_s: 900, ahorro_agua: 1, name: 'Pronóstico de precipitación (Azure Maps Hourly Forecast)' });\n// Al arrancar se fuerza una consulta inmediata de ambas APIs\nconst c3 = flow.get('dev-03'); c3.last = 0; flow.set('dev-03', c3);\nconst c4 = flow.get('dev-04'); c4.last = 0; flow.set('dev-04', c4);\nnode.status({ fill: 'green', shape: 'dot', text: 'inicializado' });\nreturn [{ topic: 'dev-03', force: true }, { topic: 'dev-04', force: true }];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 290,
+    "y": 100,
+    "wires": [
+      [
+        "fn_sched"
+      ],
+      [
+        "fn_sched"
+      ]
+    ]
+  },
+  {
+    "id": "inj_03",
+    "type": "inject",
+    "z": "tab_api",
+    "name": "tick DEV-03",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "30",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "dev-03",
+    "x": 120,
+    "y": 160,
+    "wires": [
+      [
+        "fn_sched"
+      ]
+    ]
+  },
+  {
+    "id": "inj_04",
+    "type": "inject",
+    "z": "tab_api",
+    "name": "tick DEV-04",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "30",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "dev-04",
+    "x": 120,
+    "y": 200,
+    "wires": [
+      [
+        "fn_sched"
+      ]
+    ]
+  },
+  {
+    "id": "fn_sched",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Planificador de consultas",
+    "func": "// Planificador de consultas a Azure Maps. Respeta el intervalo configurable por retroceso\n// (SET_INTERVAL) y el encendido/apagado (POWER). msg.force = consulta inmediata (POLL_NOW).\nconst dev = msg.topic;\nconst cfg = flow.get(dev);\nif (!cfg) return null;\nconst now = Date.now();\nif (!msg.force && (cfg.power !== 'on' || now - cfg.last < cfg.interval_s * 1000)) return null;\nconst key = env.get('AZURE_MAPS_KEY');\nif (!key || key.startsWith('pon-aqui')) { node.status({ fill: 'red', shape: 'ring', text: 'falta AZURE_MAPS_KEY' }); return null; }\ncfg.last = now;\nflow.set(dev, cfg);\nconst q = `${cfg.lat},${cfg.lon}`;\nconst base = 'https://atlas.microsoft.com/weather';\nconst out = { device: dev, method: 'GET', headers: { Accept: 'application/json' } };\nout.url = dev === 'dev-03'\n  ? `${base}/currentConditions/json?api-version=1.1&query=${q}&details=true&language=es-419&subscription-key=${key}`\n  : `${base}/forecast/hourly/json?api-version=1.1&query=${q}&duration=12&language=es-419&subscription-key=${key}`;\nnode.status({ fill: 'blue', shape: 'dot', text: `${dev} consultado ${new Date().toISOString().slice(11, 19)}Z` });\nreturn out;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 500,
+    "y": 160,
+    "wires": [
+      [
+        "http_azure"
+      ]
+    ]
+  },
+  {
+    "id": "http_azure",
+    "type": "http request",
+    "z": "tab_api",
+    "name": "GET atlas.microsoft.com/weather",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 760,
+    "y": 160,
+    "wires": [
+      [
+        "fn_map"
+      ]
+    ]
+  },
+  {
+    "id": "fn_map",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Normalizar JSON -> telemetría",
+    "func": "// Normaliza la respuesta JSON de Azure Maps al contrato de telemetría CacaoSmart y genera el estado.\n// Salida 1 -> telemetry (MQTT)   Salida 2 -> status retenido (MQTT)\nconst dev = msg.device;\nconst cfg = flow.get(dev);\nconst zone = 'clima';\nconst nowIso = new Date().toISOString().replace(/\\.\\d+Z$/, 'Z');\nconst t = (k) => `cacaosmart/santander/${zone}/${dev}/${k}`;\nconst v = (o) => (o && typeof o.value === 'number') ? o.value : null;\n\nfunction buildStatus() {\n  const s = { online: cfg.ok ? 1 : 0, device: dev, name: cfg.name, type: 'api', power: cfg.power, interval_s: cfg.interval_s,\n              mode: cfg.mode, lat: cfg.lat, lon: cfg.lon, ts: nowIso, source: 'Azure Maps Weather v1.1' };\n  if (dev === 'dev-04') s.ahorro_agua = cfg.ahorro_agua ? 1 : 0;\n  if (cfg.error) s.error = cfg.error;\n  if (cfg.last_cmd) s.last_cmd = cfg.last_cmd;\n  return JSON.stringify(s);\n}\n\nif (msg.statusCode !== 200 || !msg.payload || typeof msg.payload !== 'object') {\n  cfg.ok = 0; cfg.error = `HTTP ${msg.statusCode}`; flow.set(dev, cfg);\n  node.status({ fill: 'red', shape: 'ring', text: cfg.error });\n  return [null, { topic: t('status'), payload: buildStatus(), qos: 1, retain: true }];\n}\ncfg.seq = (cfg.seq || 0) + 1; cfg.ok = 1; delete cfg.error;\nlet tele;\nif (dev === 'dev-03') {\n  const r = msg.payload.results[0];\n  const ps = r.precipitationSummary || {};\n  tele = {\n    ts: nowIso, type: 'api', seq: cfg.seq,\n    temp_c: v(r.temperature), sensacion_c: v(r.realFeelTemperature), punto_rocio_c: v(r.dewPoint),\n    hr_pct: r.relativeHumidity, uv_index: r.uvIndex, viento_kmh: v(r.wind && r.wind.speed),\n    viento_dir_deg: r.wind && r.wind.direction ? r.wind.direction.degrees : null,\n    rafaga_kmh: v(r.windGust && r.windGust.speed), nubosidad_pct: r.cloudCover, presion_hpa: v(r.pressure),\n    visibilidad_km: v(r.visibility), lluvia_1h_mm: v(ps.pastHour) || 0, lluvia_24h_mm: v(ps.past24Hours) || 0,\n    es_dia: r.isDayTime ? 1 : 0, condition: r.phrase\n  };\n} else {\n  const f = msg.payload.forecasts || [];\n  const f0 = f[0] || {};\n  const prob = (x) => x.precipitationProbability || 0;\n  tele = {\n    ts: nowIso, type: 'api', seq: cfg.seq,\n    prob_lluvia_pct: prob(f0),\n    prob_lluvia_3h_pct: Math.max(0, ...f.slice(0, 3).map(prob)),\n    prob_lluvia_max_12h: Math.max(0, ...f.map(prob)),\n    precip_12h_mm: Math.round(f.reduce((s, x) => s + (v(x.totalLiquid) || 0), 0) * 10) / 10,\n    horas_lluvia_12h: f.filter(x => x.hasPrecipitation).length,\n    nubosidad_pct: f0.cloudCover, temp_prox_h_c: v(f0.temperature),\n    uv_max_12h: Math.max(0, ...f.map(x => x.uvIndex || 0)),\n    ahorro_agua: cfg.ahorro_agua ? 1 : 0, condition: f0.iconPhrase\n  };\n}\nfor (const k of Object.keys(tele)) if (tele[k] === null || tele[k] === undefined) delete tele[k];\nflow.set(dev, cfg);\nnode.status({ fill: 'green', shape: 'dot', text: `${dev} #${cfg.seq}: ${tele.condition || ''}` });\nreturn [{ topic: t('telemetry'), payload: JSON.stringify(tele), qos: 1, retain: true },\n        { topic: t('status'), payload: buildStatus(), qos: 1, retain: true }];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1030,
+    "y": 160,
+    "wires": [
+      [
+        "mq_out_api"
+      ],
+      [
+        "mq_out_api"
+      ]
+    ]
+  },
+  {
+    "id": "mq_out_api",
+    "type": "mqtt out",
+    "z": "tab_api",
+    "name": "publicar telemetry/status",
+    "topic": "",
+    "qos": "",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt_broker",
+    "x": 1290,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "mq_in_apicmd",
+    "type": "mqtt in",
+    "z": "tab_api",
+    "name": "comandos DEV-03/04",
+    "topic": "cacaosmart/+/clima/+/command",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "mqtt_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 140,
+    "y": 280,
+    "wires": [
+      [
+        "fn_apicmd"
+      ]
+    ]
+  },
+  {
+    "id": "fn_apicmd",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Retroceso de las APIs",
+    "func": "// Retroceso para los dispositivos API (DEV-03, DEV-04): el \"dispositivo\" es la integración\n// con Azure Maps, así que los comandos cambian cómo y cuándo se consulta la nube.\n// Salida 1 -> status (ACK)  Salida 2 -> consulta inmediata\nconst dev = msg.topic.split('/')[3];\nconst cfg = flow.get(dev);\nif (!cfg) return null;\nconst p = typeof msg.payload === 'object' ? msg.payload : {};\nconst cmd = String(p.cmd || p.action || '').toUpperCase();\nlet ok = true, txt = '', poll = false;\nswitch (cmd) {\n  case 'SET_INTERVAL':\n  case 'SET_POLLING': {\n    // Azure Maps cobra por transacción: límite inferior de 60 s para no agotar la cuota\n    const s = Math.max(60, Math.min(3600, Number(p.value || cfg.interval_s)));\n    cfg.interval_s = s; txt = `polling cada ${s}s`; break;\n  }\n  case 'POWER':\n    cfg.power = String(p.state || 'on').toLowerCase() === 'off' ? 'off' : 'on'; txt = `consultas ${cfg.power}`; break;\n  case 'SET_LOCATION': {\n    const lat = Number(p.lat), lon = Number(p.lon);\n    if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) { ok = false; txt = 'coordenadas inválidas'; break; }\n    cfg.lat = lat; cfg.lon = lon; poll = true; txt = `ubicación ${lat},${lon}`; break;\n  }\n  case 'AHORRO_AGUA':\n    if (dev !== 'dev-04') { ok = false; txt = 'sólo aplica a DEV-04'; break; }\n    cfg.ahorro_agua = ['on', '1', 'true'].includes(String(p.state || 'on').toLowerCase()) ? 1 : 0;\n    txt = `modo ahorro de agua ${cfg.ahorro_agua ? 'ACTIVO' : 'inactivo'}`; poll = true; break;\n  case 'SET_MODE':\n    cfg.mode = p.value === 'manual' ? 'manual' : 'auto'; txt = `modo ${cfg.mode}`; break;\n  case 'POLL_NOW':\n    poll = true; txt = 'consulta inmediata'; break;\n  case 'PING':\n    txt = 'pong'; break;\n  default:\n    ok = false; txt = `comando desconocido: ${cmd}`;\n}\ncfg.last_cmd = { cid: p.cid || '', cmd, src: p.src || 'desconocido', ok: ok ? 1 : 0, msg: txt, at: new Date().toISOString() };\nflow.set(dev, cfg);\nnode.status({ fill: ok ? 'green' : 'red', shape: 'dot', text: `${dev} ${cmd}: ${txt}` });\nconst status = { online: cfg.ok ? 1 : 0, device: dev, name: cfg.name, type: 'api', power: cfg.power, interval_s: cfg.interval_s,\n                 mode: cfg.mode, lat: cfg.lat, lon: cfg.lon, last_cmd: cfg.last_cmd, ts: new Date().toISOString() };\nif (dev === 'dev-04') status.ahorro_agua = cfg.ahorro_agua;\nreturn [{ topic: `cacaosmart/santander/clima/${dev}/status`, payload: JSON.stringify(status), qos: 1, retain: true },\n        poll ? { topic: dev, force: true } : null];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 280,
+    "wires": [
+      [
+        "mq_out_api"
+      ],
+      [
+        "fn_sched"
+      ]
+    ]
+  },
+  {
+    "id": "tab_rules",
+    "type": "tab",
+    "label": "2 · Motor de reglas (retroceso)",
+    "disabled": false,
+    "info": "Lazos de control automáticos y alertas."
+  },
+  {
+    "id": "c2",
+    "type": "comment",
+    "z": "tab_rules",
+    "name": "Lazos: UV->polisombra · suelo+lluvia->riego · fermentación->volteo · marquesina->extractores",
+    "info": "",
+    "x": 360,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "mq_in_tele",
+    "type": "mqtt in",
+    "z": "tab_rules",
+    "name": "telemetría de todos",
+    "topic": "cacaosmart/+/+/+/telemetry",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "mqtt_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 140,
+    "y": 120,
+    "wires": [
+      [
+        "fn_store",
+        "fn_rules"
+      ]
+    ]
+  },
+  {
+    "id": "mq_in_stat",
+    "type": "mqtt in",
+    "z": "tab_rules",
+    "name": "estado (shadow/LWT)",
+    "topic": "cacaosmart/+/+/+/status",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "mqtt_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 140,
+    "y": 200,
+    "wires": [
+      [
+        "fn_store"
+      ]
+    ]
+  },
+  {
+    "id": "fn_store",
+    "type": "function",
+    "z": "tab_rules",
+    "name": "Último dato / shadow",
+    "func": "// Guarda el último dato y el último estado de cada dispositivo (vista en memoria / \"digital shadow\")\nconst parts = msg.topic.split('/');\nconst dev = parts[3], kind = parts[4];\nif (typeof msg.payload !== 'object' || msg.payload === null) return null;\nconst key = kind === 'telemetry' ? 'latest' : 'shadow';\nconst all = global.get(key) || {};\nall[dev] = kind === 'telemetry' ? { at: Date.now(), data: msg.payload } : msg.payload;\nglobal.set(key, all);\nif (kind === 'status') {\n  // Alerta de dispositivo fuera de línea (Last Will publicado por el broker)\n  const prev = context.get('online') || {};\n  const was = prev[dev];\n  prev[dev] = msg.payload.online;\n  context.set('online', prev);\n  if (was === 1 && msg.payload.online === 0) {\n    const zones = global.get('zones') || {};\n    return { topic: `cacaosmart/santander/${zones[dev] || parts[2]}/${dev}/alert`, qos: 1,\n             payload: JSON.stringify({ ts: new Date().toISOString(), rule: 'offline', severity: 'warning',\n                                       msg: `${dev} perdió conexión con el broker (LWT)`, value: 0 }) };\n  }\n}\nreturn null;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 200,
+    "wires": [
+      [
+        "mq_out_rules"
+      ]
+    ]
+  },
+  {
+    "id": "fn_rules",
+    "type": "function",
+    "z": "tab_rules",
+    "name": "Motor de reglas",
+    "func": "// =====================================================================\n//  MOTOR DE REGLAS CacaoSmart IoT  (retroceso automático / lazos de control)\n//  Se ejecuta con CADA mensaje de telemetría. Patrón de \"reconciliación\": compara el estado\n//  deseado con el estado real reportado por el dispositivo (status retenido) y sólo envía\n//  comandos cuando difieren, con tiempos de enfriamiento para evitar oscilaciones.\n//\n//  Lazo 1  Protección solar ......... UV (DEV-03) >= 8 -> polisombra DEV-05 al 80 % + LED DEV-01\n//  Lazo 2  Riego predictivo ......... suelo DEV-02 < umbral -> consulta lluvia DEV-04 -> relé DEV-02 + bomba DEV-06\n//  Lazo 4  Fermentación ............. masa DEV-07 > 50 °C o 48/96 h -> VOLTEO\n//  Lazo 5  Secado ................... marquesina DEV-08 > 45 °C -> extractores + compuertas; lluvia -> cerrar\n//  Alertas Moniliasis, fuga, sobrecalentamiento, desviación vs. curva ideal (DEV-10), anomalía DEV-09\n//  (El Lazo 3, calibración remota, lo ejecuta el operador desde el panel o la API REST.)\n//  Salida 1 -> comandos (MQTT .../command)   Salida 2 -> alertas (MQTT .../alert)\n// =====================================================================\nconst p = msg.payload;\nif (typeof p !== 'object' || p === null) return null;\nconst dev = msg.topic.split('/')[3];\nconst zones = global.get('zones') || {};\nconst latest = global.get('latest') || {};\nconst shadow = global.get('shadow') || {};\nconst st = context.get('st') || {};\nconst now = Date.now();\nconst cmds = [], alerts = [];\nconst iso = () => new Date().toISOString().replace(/\\.\\d+Z$/, 'Z');\n\nfunction cmd(target, body) {\n  const cid = 'r' + now.toString(36) + Math.floor(Math.random() * 1296).toString(36);\n  cmds.push({ topic: `cacaosmart/santander/${zones[target]}/${target}/command`, qos: 1,\n              payload: JSON.stringify({ ...body, src: 'rules', cid, ts: iso() }) });\n}\nfunction alert(target, rule, severity, text, value, cooldownMin) {\n  const k = `al:${rule}:${target}`;\n  if (st[k] && now - st[k] < (cooldownMin || 60) * 60000) return;\n  st[k] = now;\n  alerts.push({ topic: `cacaosmart/santander/${zones[target]}/${target}/alert`, qos: 1,\n                payload: JSON.stringify({ ts: iso(), rule, severity, msg: text, value: Number(value) || 0 }) });\n}\nfunction cool(k, min) {               // true si ya pasó el enfriamiento (y lo reinicia)\n  if (st[k] && now - st[k] < min * 60000) return false;\n  st[k] = now; return true;\n}\nconst data = (d) => (latest[d] && latest[d].data) || {};\nconst fresh = (d, maxMin) => !!latest[d] && now - latest[d].at < (maxMin || 30) * 60000;\nconst sh = (d) => shadow[d] || {};\nconst manual = (d) => sh(d).mode === 'manual';\nconst online = (d) => sh(d).online === 1;\n\nswitch (dev) {\n  // ---------------------------------------------------------- LAZO 1: protección solar\n  case 'dev-03': {\n    const uv = Number(p.uv_index);\n    let deseado = null;\n    if (uv >= 8) deseado = 80;\n    else if (uv <= 5) deseado = 30;                         // histéresis 5..8\n    const actual = sh('dev-05').objetivo_pct;\n    if (deseado !== null && online('dev-05') && !manual('dev-05') && actual !== deseado && cool('shade', 5)) {\n      cmd('dev-05', { cmd: 'SET_SHADE', value: deseado });\n      cmd('dev-01', { cmd: 'LED', state: deseado === 80 ? 'on' : 'off' });\n      if (deseado === 80) alert('dev-03', 'uv_alto', 'warning', `Índice UV ${uv} ≥ 8: polisombra al 80 % y LED de aviso encendido`, uv, 180);\n    }\n    if (Number(p.temp_c) >= 34) alert('dev-03', 'calor_extremo', 'warning', `Temperatura exterior ${p.temp_c} °C: riesgo de estrés térmico en plántulas`, p.temp_c, 240);\n    break;\n  }\n  // ---------------------------------------------------------- LAZO 2: riego predictivo\n  case 'dev-02': {\n    const h = Number(p.humedad_suelo_pct);\n    const umbral = Number(p.umbral_pct || 35);\n    if (h < umbral && !p.valvula && !manual('dev-02') && cool('riego', 45)) {\n      const fc = data('dev-04');\n      const prob = fresh('dev-04', 60) ? Number(fc.prob_lluvia_3h_pct ?? fc.prob_lluvia_pct) : null;\n      const ahorro = sh('dev-04').ahorro_agua !== 0;\n      if (prob !== null && prob > 65 && ahorro) {\n        alert('dev-02', 'riego_inhibido', 'info', `Suelo ${h} % < ${umbral} %, pero lluvia ${prob} % > 65 %: riego bloqueado (ahorro hídrico)`, h, 60);\n      } else {\n        const mins = (prob === null || prob < 30) ? 15 : 8;   // lluvia incierta 30-65 % -> riego reducido\n        cmd('dev-02', { cmd: 'RELAY', state: 'ON', duration_min: mins });\n        cmd('dev-06', { cmd: 'START', duration_min: mins, flow: 30 });\n        alert('dev-02', 'riego_auto', 'info', `Riego automático ${mins} min (suelo ${h} %, prob. lluvia ${prob === null ? 's/d' : prob + ' %'})`, h, 30);\n      }\n    }\n    if (Number(p.bateria_v) > 0 && Number(p.bateria_v) < 3.5) alert('dev-02', 'bateria_baja', 'warning', `Batería del nodo ${p.bateria_v} V`, p.bateria_v, 360);\n    break;\n  }\n  // ---------------------------------------------------------- Moniliasis (microclima)\n  case 'dev-01': {\n    const riesgo = Number(p.hr_pct) > 88 && Number(p.temp_c) > 26;\n    if (riesgo) {\n      st.monil = st.monil || now;\n      const horas = (now - st.monil) / 3600000;\n      if (horas >= 4) alert('dev-01', 'moniliasis', 'critical', `Riesgo de Moniliasis: HR > 88 % y T > 26 °C sostenidos ${horas.toFixed(1)} h`, p.hr_pct, 360);\n    } else st.monil = null;\n    break;\n  }\n  // ---------------------------------------------------------- Bomba (fugas)\n  case 'dev-06': {\n    if (Number(p.emergencia) === 1) alert('dev-06', 'fuga', 'critical', `Parada de emergencia de la bomba: presión ${p.presion_psi} PSI (posible fuga)`, p.presion_psi, 30);\n    else if (Number(p.bomba) === 1 && Number(p.presion_psi) < 15) alert('dev-06', 'presion_baja', 'warning', `Presión de línea baja ${p.presion_psi} PSI`, p.presion_psi, 30);\n    break;\n  }\n  // ---------------------------------------------------------- LAZO 4: fermentación\n  case 'dev-07': {\n    const t = Number(p.temp_masa_c), h = Number(p.horas_fermentacion), v = Number(p.volteos);\n    if (!manual('dev-07')) {\n      if (t > 50 && cool('volteo', 120)) {\n        cmd('dev-07', { cmd: 'VOLTEO' });\n        alert('dev-07', 'fermentacion_alta', 'warning', `Masa a ${t} °C (> 50 °C): volteo automático`, t, 120);\n      } else if ((h >= 48 && v < 1) || (h >= 96 && v < 2)) {\n        if (cool('volteo_prog', 60)) cmd('dev-07', { cmd: 'VOLTEO' });\n      }\n    }\n    if (h > 60 && h < 110 && t < 35) alert('dev-07', 'fermentacion_fria', 'warning', `Fermentación fría (${t} °C en fase acética): revisar masa`, t, 240);\n    break;\n  }\n  // ---------------------------------------------------------- LAZO 5: secado\n  case 'dev-08': {\n    const t = Number(p.temp_interna_c);\n    const lluvia = Number(data('dev-03').lluvia_1h_mm || 0) > 0 ||\n                   (fresh('dev-04', 60) && Number(data('dev-04').prob_lluvia_pct) >= 65);\n    let ext = Number(p.extractores), comp = Number(p.compuertas);\n    let extD = ext, compD = comp;\n    if (t > 45) { extD = 1; compD = 1; }\n    else if (t < 40) extD = 0;\n    if (t <= 45) compD = lluvia ? 0 : 1;\n    if (!manual('dev-08')) {\n      if (extD !== ext && cool('ext', 5)) cmd('dev-08', { cmd: 'EXTRACTORES', state: extD ? 'on' : 'off' });\n      if (compD !== comp && cool('comp', 5)) cmd('dev-08', { cmd: 'COMPUERTAS', state: compD ? 'open' : 'close' });\n    }\n    if (t > 46) alert('dev-08', 'sobrecalentamiento', 'critical', `Marquesina a ${t} °C (> 46 °C): riesgo de acidez y grano arrebatado`, t, 60);\n    const ideal = data('dev-10');\n    if (fresh('dev-10', 30) && ideal.humedad_objetivo_pct !== undefined) {\n      const desv = Number(p.humedad_grano_pct) - Number(ideal.humedad_objetivo_pct);\n      if (desv > 8) alert('dev-08', 'secado_retrasado', 'info', `Grano ${desv.toFixed(1)} pts por encima de la curva ideal (${ideal.profile})`, desv, 360);\n    }\n    if (Number(p.humedad_grano_pct) <= 7) alert('dev-08', 'lote_listo', 'info', `Lote #${p.lote} seco: ${p.humedad_grano_pct} % (≤ 7 %, NTC 1252)`, p.humedad_grano_pct, 720);\n    break;\n  }\n  // ---------------------------------------------------------- Dataset: anomalía inyectada\n  case 'dev-09': {\n    if (Number(p.anomalia) === 1) alert('dev-09', 'anomalia_dataset', 'warning', `Anomalía térmica inyectada en el histórico: ${p.temp_ref_c} °C`, p.temp_ref_c, 30);\n    const actual = data('dev-03').temp_c;\n    if (actual !== undefined && fresh('dev-03', 30) && Math.abs(Number(actual) - Number(p.temp_ref_c)) > 6)\n      alert('dev-09', 'desviacion_historica', 'info', `Temperatura actual ${actual} °C vs ${p.temp_ref_c} °C hace un año`, Number(actual) - Number(p.temp_ref_c), 360);\n    break;\n  }\n}\ncontext.set('st', st);\nif (cmds.length || alerts.length) node.status({ fill: 'yellow', shape: 'dot', text: `${dev}: ${cmds.length} cmd, ${alerts.length} alertas` });\nreturn [cmds, alerts];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 120,
+    "wires": [
+      [
+        "mq_out_rules"
+      ],
+      [
+        "mq_out_rules",
+        "fn_tg"
+      ]
+    ]
+  },
+  {
+    "id": "mq_out_rules",
+    "type": "mqtt out",
+    "z": "tab_rules",
+    "name": "comandos / alertas",
+    "topic": "",
+    "qos": "",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt_broker",
+    "x": 680,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "fn_tg",
+    "type": "function",
+    "z": "tab_rules",
+    "name": "Formato Telegram",
+    "func": "// Notificación de alertas warning/critical a Telegram (opcional: TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID en .env)\nconst token = env.get('TELEGRAM_BOT_TOKEN'), chat = env.get('TELEGRAM_CHAT_ID');\nif (!token || !chat) return null;\nconst a = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;\nif (!['warning', 'critical'].includes(a.severity)) return null;\nconst dev = msg.topic.split('/')[3];\nconst icon = a.severity === 'critical' ? '🚨' : '⚠️';\nreturn {\n  url: `https://api.telegram.org/bot${token}/sendMessage`, method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  payload: { chat_id: chat, text: `${icon} CacaoSmart · ${dev.toUpperCase()}\\n${a.msg}` }\n};\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 660,
+    "y": 260,
+    "wires": [
+      [
+        "http_tg"
+      ]
+    ]
+  },
+  {
+    "id": "http_tg",
+    "type": "http request",
+    "z": "tab_rules",
+    "name": "POST api.telegram.org",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 880,
+    "y": 260,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "tab_rest",
+    "type": "tab",
+    "label": "3 · API REST (endpoints)",
+    "disabled": false,
+    "info": "Ingesta HTTP y comandos por REST. Publicado por Caddy en https://<dominio>/api/"
+  },
+  {
+    "id": "http_in_0",
+    "type": "http in",
+    "z": "tab_rest",
+    "name": "GET /api/health",
+    "url": "/api/health",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 80,
+    "wires": [
+      [
+        "fn_rest"
+      ]
+    ]
+  },
+  {
+    "id": "http_in_1",
+    "type": "http in",
+    "z": "tab_rest",
+    "name": "GET /api/devices",
+    "url": "/api/devices",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 140,
+    "wires": [
+      [
+        "fn_rest"
+      ]
+    ]
+  },
+  {
+    "id": "http_in_2",
+    "type": "http in",
+    "z": "tab_rest",
+    "name": "POST /api/ingest/:device",
+    "url": "/api/ingest/:device",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 200,
+    "wires": [
+      [
+        "fn_rest"
+      ]
+    ]
+  },
+  {
+    "id": "http_in_3",
+    "type": "http in",
+    "z": "tab_rest",
+    "name": "POST /api/devices/:device/command",
+    "url": "/api/devices/:device/command",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 260,
+    "wires": [
+      [
+        "fn_rest"
+      ]
+    ]
+  },
+  {
+    "id": "fn_rest",
+    "type": "function",
+    "z": "tab_rest",
+    "name": "API REST",
+    "func": "// API REST de CacaoSmart (endpoints HTTP sobre Node-RED, publicados por Caddy en https://<dominio>/api/...)\n//   POST /api/ingest/:device            ingesta de telemetría por HTTP (DEV-10)      [Bearer API_TOKEN]\n//   POST /api/devices/:device/command   envía un comando de retroceso                [Bearer API_TOKEN]\n//   GET  /api/devices                   último dato + estado de los 10 dispositivos  [público]\n//   GET  /api/health                    estado del servicio                           [público]\n// Salida 1 -> MQTT   Salida 2 -> respuesta HTTP\nconst zones = global.get('zones') || {};\nconst route = msg.req.route.path;\nconst method = msg.req.method;\nconst res = (code, body) => [null, { ...msg, statusCode: code, payload: body, headers: { 'Content-Type': 'application/json' } }];\nconst authed = (msg.req.headers.authorization || '') === `Bearer ${env.get('API_TOKEN')}`;\n\nif (route === '/api/health') {\n  return res(200, { ok: true, service: 'cacaosmart-nodered', time: new Date().toISOString(), devices: Object.keys(zones).length });\n}\nif (route === '/api/devices' && method === 'GET') {\n  const latest = global.get('latest') || {}, shadow = global.get('shadow') || {};\n  const out = {};\n  for (const d of Object.keys(zones).sort()) {\n    out[d] = { zone: zones[d], status: shadow[d] || null, last: latest[d] ? latest[d].data : null,\n               last_seen_s: latest[d] ? Math.round((Date.now() - latest[d].at) / 1000) : null };\n  }\n  return res(200, out);\n}\nif (!authed) return res(401, { error: 'token inválido o ausente (Authorization: Bearer <API_TOKEN>)' });\n\nconst dev = msg.req.params.device;\nif (!zones[dev]) return res(404, { error: `dispositivo desconocido: ${dev}` });\nconst body = typeof msg.payload === 'object' && msg.payload !== null ? msg.payload : null;\nif (!body) return res(400, { error: 'se esperaba un cuerpo JSON' });\n\nif (route === '/api/ingest/:device') {\n  body.ts = body.ts || new Date().toISOString().replace(/\\.\\d+Z$/, 'Z');\n  const topic = `cacaosmart/santander/${zones[dev]}/${dev}/telemetry`;\n  node.status({ fill: 'green', shape: 'dot', text: `ingest ${dev} #${body.seq || ''}` });\n  return [{ topic, payload: JSON.stringify(body), qos: 1 }, { ...msg, statusCode: 202, payload: { accepted: true, topic } }];\n}\nif (route === '/api/devices/:device/command') {\n  if (!body.cmd) return res(400, { error: 'falta el campo \"cmd\"' });\n  const cid = body.cid || ('a' + Date.now().toString(36));\n  const out = { ...body, cmd: String(body.cmd).toUpperCase(), cid, src: 'api', ts: new Date().toISOString() };\n  const topic = `cacaosmart/santander/${zones[dev]}/${dev}/command`;\n  node.status({ fill: 'blue', shape: 'dot', text: `cmd ${dev} ${out.cmd}` });\n  return [{ topic, payload: JSON.stringify(out), qos: 1 }, { ...msg, statusCode: 202, payload: { sent: true, cid, topic, command: out } }];\n}\nreturn res(404, { error: 'ruta no encontrada' });\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 170,
+    "wires": [
+      [
+        "mq_out_rest"
+      ],
+      [
+        "http_resp"
+      ]
+    ]
+  },
+  {
+    "id": "mq_out_rest",
+    "type": "mqtt out",
+    "z": "tab_rest",
+    "name": "publicar en broker",
+    "topic": "",
+    "qos": "",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt_broker",
+    "x": 720,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "http_resp",
+    "type": "http response",
+    "z": "tab_rest",
+    "name": "respuesta",
+    "statusCode": "",
+    "headers": {},
+    "x": 700,
+    "y": 200,
+    "wires": []
+  }
+]

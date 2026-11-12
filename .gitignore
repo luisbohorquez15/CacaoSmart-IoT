@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+analysis/out/
+docs/build/
+*.log
+.DS_Store
+!.env.example
+.env.*
+deploy/esp32-listo/

@@ -1,0 +1,106 @@
+time,device,kind,name,src,msg
+2026-11-06T05:50:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-06T10:50:00-05:00,dev-05,command,SET_SHADE,rules,"{""cmd"": ""SET_SHADE"", ""value"": 80}"
+2026-11-06T10:50:00-05:00,dev-01,command,LED,rules,"{""cmd"": ""LED"", ""state"": ""on""}"
+2026-11-06T10:50:00-05:00,dev-03,alert,uv_alto,warning,Índice UV 8 ≥ 8: polisombra al 80 %
+2026-11-06T11:50:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-06T12:30:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 8}"
+2026-11-06T12:30:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 8}"
+2026-11-06T12:30:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 8 min (suelo 34.89 %, lluvia 54 %)"
+2026-11-06T13:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""close""}"
+2026-11-06T14:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""open""}"
+2026-11-06T14:10:00-05:00,dev-05,command,SET_SHADE,rules,"{""cmd"": ""SET_SHADE"", ""value"": 30}"
+2026-11-06T14:10:00-05:00,dev-01,command,LED,rules,"{""cmd"": ""LED"", ""state"": ""off""}"
+2026-11-06T14:30:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 8}"
+2026-11-06T14:30:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 8}"
+2026-11-06T14:30:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 8 min (suelo 34.65 %, lluvia 59 %)"
+2026-11-06T15:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""close""}"
+2026-11-06T17:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""open""}"
+2026-11-06T19:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""close""}"
+2026-11-06T19:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-06T21:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""open""}"
+2026-11-07T00:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""close""}"
+2026-11-07T01:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-07T07:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-07T13:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-07T19:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-07T20:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""open""}"
+2026-11-07T22:00:00-05:00,dev-07,command,VOLTEO,rules,"{""cmd"": ""VOLTEO""}"
+2026-11-08T01:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""close""}"
+2026-11-08T01:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-08T07:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-08T10:55:00-05:00,dev-05,command,SET_SHADE,rules,"{""cmd"": ""SET_SHADE"", ""value"": 80}"
+2026-11-08T10:55:00-05:00,dev-01,command,LED,rules,"{""cmd"": ""LED"", ""state"": ""on""}"
+2026-11-08T10:55:00-05:00,dev-03,alert,uv_alto,warning,Índice UV 8 ≥ 8: polisombra al 80 %
+2026-11-08T13:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-08T14:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""open""}"
+2026-11-08T14:15:00-05:00,dev-05,command,SET_SHADE,rules,"{""cmd"": ""SET_SHADE"", ""value"": 30}"
+2026-11-08T14:15:00-05:00,dev-01,command,LED,rules,"{""cmd"": ""LED"", ""state"": ""off""}"
+2026-11-08T19:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-09T01:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-09T07:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-09T10:10:00-05:00,dev-08,command,EXTRACTORES,rules,"{""cmd"": ""EXTRACTORES"", ""state"": ""on""}"
+2026-11-09T10:25:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 15}"
+2026-11-09T10:25:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 15}"
+2026-11-09T10:25:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 15 min (suelo 34.92 %, lluvia 3 %)"
+2026-11-09T10:45:00-05:00,dev-08,alert,sobrecalentamiento,critical,Marquesina a 46.06 °C (> 46 °C)
+2026-11-09T10:55:00-05:00,dev-05,command,SET_SHADE,rules,"{""cmd"": ""SET_SHADE"", ""value"": 80}"
+2026-11-09T10:55:00-05:00,dev-01,command,LED,rules,"{""cmd"": ""LED"", ""state"": ""on""}"
+2026-11-09T10:55:00-05:00,dev-03,alert,uv_alto,warning,Índice UV 8 ≥ 8: polisombra al 80 %
+2026-11-09T11:45:00-05:00,dev-08,alert,sobrecalentamiento,critical,Marquesina a 49.5 °C (> 46 °C)
+2026-11-09T11:50:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 15}"
+2026-11-09T11:50:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 15}"
+2026-11-09T11:50:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 15 min (suelo 34.95 %, lluvia 4 %)"
+2026-11-09T12:45:00-05:00,dev-08,alert,sobrecalentamiento,critical,Marquesina a 49.3 °C (> 46 °C)
+2026-11-09T13:00:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-09T13:10:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 15}"
+2026-11-09T13:10:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 15}"
+2026-11-09T13:10:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 15 min (suelo 34.86 %, lluvia 4 %)"
+2026-11-09T13:45:00-05:00,dev-08,alert,sobrecalentamiento,critical,Marquesina a 46.96 °C (> 46 °C)
+2026-11-09T14:25:00-05:00,dev-05,command,SET_SHADE,rules,"{""cmd"": ""SET_SHADE"", ""value"": 30}"
+2026-11-09T14:25:00-05:00,dev-01,command,LED,rules,"{""cmd"": ""LED"", ""state"": ""off""}"
+2026-11-09T15:00:00-05:00,dev-08,command,EXTRACTORES,rules,"{""cmd"": ""EXTRACTORES"", ""state"": ""off""}"
+2026-11-09T15:10:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 15}"
+2026-11-09T15:10:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 15}"
+2026-11-09T15:10:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 15 min (suelo 34.22 %, lluvia 1 %)"
+2026-11-09T22:00:00-05:00,dev-07,command,VOLTEO,rules,"{""cmd"": ""VOLTEO""}"
+2026-11-09T22:10:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-10T04:10:00-05:00,dev-08,alert,secado_retrasado,info,Grano > 8 pts sobre la curva ideal
+2026-11-10T08:00:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 15}"
+2026-11-10T08:00:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 15}"
+2026-11-10T08:00:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 15 min (suelo 34.82 %, lluvia 8 %)"
+2026-11-10T09:15:00-05:00,dev-08,command,EXTRACTORES,rules,"{""cmd"": ""EXTRACTORES"", ""state"": ""on""}"
+2026-11-10T10:00:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 15}"
+2026-11-10T10:00:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 15}"
+2026-11-10T10:00:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 15 min (suelo 34.89 %, lluvia 26 %)"
+2026-11-10T10:00:00-05:00,dev-08,alert,sobrecalentamiento,critical,Marquesina a 46.34 °C (> 46 °C)
+2026-11-10T11:00:00-05:00,dev-08,alert,sobrecalentamiento,critical,Marquesina a 49.35 °C (> 46 °C)
+2026-11-10T11:25:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 8}"
+2026-11-10T11:25:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 8}"
+2026-11-10T11:25:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 8 min (suelo 34.38 %, lluvia 31 %)"
+2026-11-10T12:00:00-05:00,dev-08,alert,sobrecalentamiento,critical,Marquesina a 50.5 °C (> 46 °C)
+2026-11-10T12:25:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 8}"
+2026-11-10T12:25:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 8}"
+2026-11-10T12:25:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 8 min (suelo 34.99 %, lluvia 31 %)"
+2026-11-10T13:00:00-05:00,dev-08,alert,sobrecalentamiento,critical,Marquesina a 47.69 °C (> 46 °C)
+2026-11-10T13:35:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 8}"
+2026-11-10T13:35:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 8}"
+2026-11-10T13:35:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 8 min (suelo 34.31 %, lluvia 31 %)"
+2026-11-10T13:40:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""close""}"
+2026-11-10T14:55:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 15}"
+2026-11-10T14:55:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 15}"
+2026-11-10T14:55:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 15 min (suelo 34.68 %, lluvia 27 %)"
+2026-11-10T15:40:00-05:00,dev-08,command,EXTRACTORES,rules,"{""cmd"": ""EXTRACTORES"", ""state"": ""off""}"
+2026-11-10T16:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""open""}"
+2026-11-11T08:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""close""}"
+2026-11-11T09:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""open""}"
+2026-11-11T09:45:00-05:00,dev-02,command,RELAY,rules,"{""cmd"": ""RELAY"", ""state"": ""ON"", ""duration_min"": 15}"
+2026-11-11T09:45:00-05:00,dev-06,command,START,rules,"{""cmd"": ""START"", ""duration_min"": 15}"
+2026-11-11T09:45:00-05:00,dev-02,alert,riego_auto,info,"Riego automático 15 min (suelo 34.99 %, lluvia 15 %)"
+2026-11-11T10:55:00-05:00,dev-05,command,SET_SHADE,rules,"{""cmd"": ""SET_SHADE"", ""value"": 80}"
+2026-11-11T10:55:00-05:00,dev-01,command,LED,rules,"{""cmd"": ""LED"", ""state"": ""on""}"
+2026-11-11T10:55:00-05:00,dev-03,alert,uv_alto,warning,Índice UV 8 ≥ 8: polisombra al 80 %
+2026-11-11T11:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""close""}"
+2026-11-11T14:25:00-05:00,dev-05,command,SET_SHADE,rules,"{""cmd"": ""SET_SHADE"", ""value"": 30}"
+2026-11-11T14:25:00-05:00,dev-01,command,LED,rules,"{""cmd"": ""LED"", ""state"": ""off""}"
+2026-11-11T16:00:00-05:00,dev-08,command,COMPUERTAS,rules,"{""cmd"": ""COMPUERTAS"", ""state"": ""open""}"

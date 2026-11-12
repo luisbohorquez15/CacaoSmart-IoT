@@ -1,0 +1,20 @@
+#cloud-config
+# CacaoSmart IoT - aprovisionamiento inicial de la VM (Docker Engine + Compose + utilidades)
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - python3-pip
+  - mosquitto-clients
+  - unattended-upgrades
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker azureuser
+  - systemctl enable --now docker
+  - timedatectl set-timezone America/Bogota
+  # swap de 2 GB para que la B2s no se quede sin memoria
+  - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+final_message: "CacaoSmart IoT: VM lista tras $UPTIME s"

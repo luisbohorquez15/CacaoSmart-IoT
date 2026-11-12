@@ -1,0 +1,9 @@
+apiVersion: 1
+providers:
+  - name: cacaosmart
+    folder: CacaoSmart
+    type: file
+    disableDeletion: true
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

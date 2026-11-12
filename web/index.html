@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CacaoSmart IoT · Panel de control</title>
+  <meta name="description" content="Panel de control en tiempo real de CacaoSmart IoT: telemetría y retroceso de 10 dispositivos por MQTT sobre WebSocket.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍫</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🍫</span>
+      <div>
+        <h1>CacaoSmart <span>IoT</span></h1>
+        <p>Agricultura de precisión · San Vicente de Chucurí, Santander</p>
+      </div>
+    </div>
+    <nav class="links">
+      <a href="/grafana/" target="_blank" rel="noopener">📊 Grafana</a>
+      <a href="/api/devices" target="_blank" rel="noopener">🔌 API REST</a>
+      <a href="/nodered/" target="_blank" rel="noopener">⚙️ Node-RED</a>
+    </nav>
+    <div class="session">
+      <span id="conn" class="pill pill-off" title="Conexión MQTT sobre WebSocket">● desconectado</span>
+      <button id="loginBtn" class="btn btn-gold">Iniciar sesión de operador</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="kpi" id="kpi-online"><span class="k-label">Dispositivos en línea</span><span class="k-val">–/10</span></div>
+      <div class="kpi" id="kpi-msgs"><span class="k-label">Mensajes MQTT recibidos</span><span class="k-val">0</span></div>
+      <div class="kpi" id="kpi-cmds"><span class="k-label">Comandos de retroceso</span><span class="k-val">0</span></div>
+      <div class="kpi" id="kpi-alerts"><span class="k-label">Alertas activas (sesión)</span><span class="k-val">0</span></div>
+      <div class="kpi role"><span class="k-label">Rol actual</span><span class="k-val" id="role">Lectura</span></div>
+    </section>
+
+    <div class="layout">
+      <section>
+        <div class="filters" role="tablist">
+          <button class="chip active" data-f="all">Todos</button>
+          <button class="chip" data-f="real">Reales · ESP32</button>
+          <button class="chip" data-f="api">API · Azure Maps</button>
+          <button class="chip" data-f="twin">Gemelos digitales</button>
+          <button class="chip" data-f="dataset">Datasets</button>
+        </div>
+        <div id="grid" class="grid"></div>
+      </section>
+
+      <aside class="side">
+        <div class="panel">
+          <h2>🚨 Alertas en vivo</h2>
+          <ul id="alerts" class="feed"><li class="empty">Sin alertas en esta sesión</li></ul>
+        </div>
+        <div class="panel">
+          <h2>↩️ Retroceso (comando → ACK)</h2>
+          <ul id="cmdlog" class="feed"><li class="empty">Aún no hay comandos</li></ul>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <dialog id="ctrl" class="drawer">
+    <form method="dialog" class="drawer-head">
+      <div>
+        <div id="ctrl-type" class="badge"></div>
+        <h3 id="ctrl-title">Dispositivo</h3>
+        <code id="ctrl-topic"></code>
+      </div>
+      <button class="x" aria-label="Cerrar">✕</button>
+    </form>
+    <div id="ctrl-state" class="state"></div>
+    <div id="ctrl-body" class="controls"></div>
+    <p id="ctrl-hint" class="hint"></p>
+  </dialog>
+
+  <dialog id="login" class="modal">
+    <form id="loginForm">
+      <h3>Sesión de operador</h3>
+      <p class="hint">El usuario de lectura sólo puede suscribirse. El operador tiene permiso (ACL de Mosquitto) para publicar en <code>…/command</code>.</p>
+      <label>Usuario <input name="u" autocomplete="username" required value="operador"></label>
+      <label>Contraseña <input name="p" type="password" autocomplete="current-password" required></label>
+      <div class="row-end">
+        <button type="button" class="btn" id="loginCancel">Cancelar</button>
+        <button class="btn btn-gold">Conectar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="foot">
+    CacaoSmart IoT · Proyecto final IoT a la medida · MQTT 3.1.1 / WebSocket · Mosquitto · Node-RED · InfluxDB · Grafana · Azure
+  </footer>
+
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 860" font-family="Inter, 'Segoe UI', Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a3a2e"/></marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C2410C"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2E7FC0"/></marker>
+    <style>
+      .t{font-size:13px;fill:#2a1d14}.s{font-size:11px;fill:#6f6259}.h{font-size:12px;font-weight:700;letter-spacing:.6px;fill:#8b5a2b}
+      .n{font-size:14px;font-weight:700;fill:#2a1d14}.lbl{font-size:10.5px;fill:#4a3a2e;font-weight:600}
+      .box{fill:#fff;stroke:#d9c9b9;stroke-width:1.2}.up{stroke:#4a3a2e;stroke-width:1.8;fill:none}
+      .down{stroke:#C2410C;stroke-width:1.8;fill:none;stroke-dasharray:7 5}.http{stroke:#2E7FC0;stroke-width:1.8;fill:none}
+    </style>
+  </defs>
+  <rect width="1400" height="860" fill="#FCFAF7"/>
+  <text x="30" y="40" font-size="22" font-weight="800" fill="#2a1d14">CacaoSmart IoT · Arquitectura de referencia</text>
+  <text x="30" y="62" class="s">4 capas · 10 dispositivos · MQTT 3.1.1 (TCP/WebSocket), HTTPS/REST · desplegado en Azure con URL propia y TLS</text>
+
+  <!-- ===================== CAPA 1 ===================== -->
+  <rect x="20" y="90" width="300" height="740" rx="16" fill="#F4EDE4" stroke="#d9c9b9"/>
+  <text x="36" y="114" class="h">CAPA 1 · PERCEPCIÓN Y ACTUACIÓN</text>
+
+  <rect x="36" y="128" width="268" height="150" rx="12" class="box"/>
+  <rect x="36" y="128" width="6" height="150" rx="3" fill="#4C9A2A"/>
+  <text x="52" y="150" class="n">Dispositivos reales</text>
+  <text x="52" y="172" class="t">DEV-01 Microclima lote</text><text x="52" y="188" class="s">ESP32 + DHT22 + LDR + LED</text>
+  <text x="52" y="210" class="t">DEV-02 Suelo y riego</text><text x="52" y="226" class="s">ESP32 + capacitivo + relé + batería</text>
+  <text x="52" y="256" class="lbl">MQTT/TCP 1883 · QoS 1 · LWT · Wi-Fi</text>
+
+  <rect x="36" y="292" width="268" height="176" rx="12" class="box"/>
+  <rect x="36" y="292" width="6" height="176" rx="3" fill="#8E4FC2"/>
+  <text x="52" y="314" class="n">Gemelos digitales</text>
+  <text x="52" y="336" class="t">DEV-05 Polisombra motorizada</text>
+  <text x="52" y="356" class="t">DEV-06 Bomba y caudalímetro</text>
+  <text x="52" y="376" class="t">DEV-07 Cajón de fermentación</text>
+  <text x="52" y="396" class="t">DEV-08 Marquesina de secado</text>
+  <text x="52" y="418" class="s">Python · modelos físicos alimentados</text><text x="52" y="432" class="s">con el clima real de DEV-03/04</text>
+  <text x="52" y="456" class="lbl">MQTT/TCP · contenedor "twins"</text>
+
+  <rect x="36" y="482" width="268" height="140" rx="12" class="box"/>
+  <rect x="36" y="482" width="6" height="140" rx="3" fill="#2E7FC0"/>
+  <text x="52" y="504" class="n">APIs (nube externa)</text>
+  <text x="52" y="526" class="t">DEV-03 Condiciones actuales</text>
+  <text x="52" y="546" class="t">DEV-04 Pronóstico horario 12 h</text>
+  <text x="52" y="568" class="s">Azure Maps Weather v1.1</text>
+  <text x="52" y="604" class="lbl">HTTPS REST (polling) → MQTT</text>
+
+  <rect x="36" y="636" width="268" height="176" rx="12" class="box"/>
+  <rect x="36" y="636" width="6" height="176" rx="3" fill="#B8860B"/>
+  <text x="52" y="658" class="n">Datasets (replay)</text>
+  <text x="52" y="680" class="t">DEV-09 Histórico clima 2025</text><text x="52" y="696" class="s">ERA5 · Open-Meteo · CC BY 4.0</text>
+  <text x="52" y="718" class="t">DEV-10 Curva ideal de secado</text><text x="52" y="734" class="s">Modelo de Page · NTC 1252</text>
+  <text x="52" y="762" class="lbl">DEV-09: MQTT</text>
+  <text x="52" y="780" class="lbl" style="fill:#2E7FC0">DEV-10: HTTP REST POST /api/ingest</text>
+  <text x="52" y="798" class="s">retroceso de ambos por MQTT</text>
+
+  <!-- ===================== NUBE AZURE ===================== -->
+  <rect x="370" y="90" width="830" height="740" rx="18" fill="#EEF4FA" stroke="#2E7FC0" stroke-dasharray="8 6" stroke-width="1.5"/>
+  <text x="390" y="114" class="h" style="fill:#1f5f96">MICROSOFT AZURE · VM Ubuntu 24.04 (B2s) · Docker Compose</text>
+  <text x="390" y="132" class="s">https://cacaosmart-iot.&lt;region&gt;.cloudapp.azure.com · NSG: 80/443/1883</text>
+
+  <!-- capa 2 -->
+  <text x="392" y="168" class="h">CAPA 2 · TRANSPORTE</text>
+  <rect x="390" y="180" width="200" height="330" rx="14" fill="#fff" stroke="#8b5a2b" stroke-width="1.6"/>
+  <circle cx="490" cy="240" r="38" fill="#F4EDE4" stroke="#8b5a2b"/>
+  <text x="490" y="236" text-anchor="middle" class="n">MQTT</text><text x="490" y="252" text-anchor="middle" class="s">broker</text>
+  <text x="490" y="302" text-anchor="middle" class="n">Eclipse Mosquitto 2.0</text>
+  <text x="404" y="328" class="s">• 1883 MQTT/TCP (dispositivos)</text>
+  <text x="404" y="346" class="s">• 9001 MQTT/WebSocket (panel)</text>
+  <text x="404" y="364" class="s">• usuario/clave + ACL por tópico</text>
+  <text x="404" y="382" class="s">• client-id = id del dispositivo</text>
+  <text x="404" y="400" class="s">• QoS 1 · status retenido · LWT</text>
+  <text x="404" y="430" class="lbl">cacaosmart/santander/&lt;zona&gt;/</text>
+  <text x="404" y="446" class="lbl">  &lt;dev&gt;/telemetry ↑  status ↑</text>
+  <text x="404" y="462" class="lbl" style="fill:#C2410C">  &lt;dev&gt;/command ↓  (retroceso)</text>
+  <text x="404" y="478" class="lbl">  &lt;dev&gt;/alert ↑</text>
+
+  <!-- capa 3 -->
+  <text x="642" y="168" class="h">CAPA 3 · PROCESAMIENTO Y PERSISTENCIA</text>
+  <rect x="640" y="180" width="260" height="210" rx="14" class="box"/>
+  <text x="656" y="204" class="n">Node-RED 4 · Orquestador</text>
+  <text x="656" y="226" class="t">① Cliente Azure Maps (DEV-03/04)</text>
+  <text x="656" y="246" class="t">② Motor de reglas · 5 lazos</text>
+  <text x="672" y="262" class="s">UV→sombra · suelo+lluvia→riego</text>
+  <text x="672" y="276" class="s">fermentación→volteo · secado→extractores</text>
+  <text x="656" y="298" class="t">③ API REST</text>
+  <text x="672" y="314" class="s">POST /api/devices/:id/command (Bearer)</text>
+  <text x="672" y="328" class="s">POST /api/ingest/:id · GET /api/devices</text>
+  <text x="656" y="352" class="t">④ Alertas → Telegram (opcional)</text>
+  <text x="656" y="374" class="s">reconciliación deseado vs. estado real</text>
+
+  <rect x="640" y="420" width="120" height="90" rx="14" class="box"/>
+  <text x="700" y="450" text-anchor="middle" class="n">Telegraf</text>
+  <text x="700" y="470" text-anchor="middle" class="s">suscriptor MQTT</text>
+  <text x="700" y="486" text-anchor="middle" class="s">JSON → línea</text>
+  <rect x="780" y="420" width="120" height="90" rx="14" class="box"/>
+  <text x="840" y="450" text-anchor="middle" class="n">InfluxDB 2.7</text>
+  <text x="840" y="470" text-anchor="middle" class="s">series de tiempo</text>
+  <text x="840" y="486" text-anchor="middle" class="s">Flux · 30 días</text>
+
+  <!-- capa 4 -->
+  <text x="952" y="168" class="h">CAPA 4 · APLICACIÓN</text>
+  <rect x="950" y="180" width="230" height="130" rx="14" class="box"/>
+  <text x="966" y="204" class="n">Grafana 11</text>
+  <text x="966" y="226" class="s">4 dashboards · prom./máx./mín.</text>
+  <text x="966" y="242" class="s">selector de tiempo (4–6 días)</text>
+  <text x="966" y="258" class="s">5 reglas de alerta · anotaciones</text>
+  <text x="966" y="274" class="s">de retroceso · acceso anónimo lectura</text>
+  <rect x="950" y="330" width="230" height="110" rx="14" class="box"/>
+  <text x="966" y="354" class="n">Panel de control web</text>
+  <text x="966" y="376" class="s">HTML/JS · MQTT.js sobre WSS</text>
+  <text x="966" y="392" class="s">telemetría en vivo + comandos</text>
+  <text x="966" y="408" class="s">ACK por cid · rol lectura / operador</text>
+  <rect x="950" y="460" width="230" height="90" rx="14" fill="#2a1d14"/>
+  <text x="966" y="486" class="n" style="fill:#fff">Caddy 2 · reverse proxy</text>
+  <text x="966" y="506" class="s" style="fill:#e8dccf">HTTPS automático Let's Encrypt</text>
+  <text x="966" y="522" class="s" style="fill:#e8dccf">/ · /grafana · /api · /mqtt (wss)</text>
+  <text x="966" y="538" class="s" style="fill:#e8dccf">/nodered (editor con clave)</text>
+
+  <rect x="390" y="580" width="790" height="230" rx="14" fill="#fff" stroke="#d9c9b9"/>
+  <text x="406" y="604" class="h">ANÁLISIS (fuera de línea) · scripts Python del repositorio</text>
+  <text x="406" y="630" class="t">export_influx.py → charts.py (pandas/matplotlib: promedio, máx., mín., desviación, diario, correlación)</text>
+  <text x="406" y="652" class="t">ai_analyst.py → Claude (API Anthropic, multimodal) lee estadísticos + gráficas y redacta el análisis</text>
+  <text x="406" y="674" class="t">build_report.py → informe HTML → PDF</text>
+  <text x="406" y="704" class="s">backfill.py: simulación de validación de 6 días con los mismos modelos y el clima real (Open-Meteo)</text>
+  <text x="406" y="722" class="s">build_flows.py / build_dashboards.py: Node-RED y Grafana como código (provisioning)</text>
+  <text x="406" y="760" class="lbl">GitHub: código, firmware ESP32, infraestructura (docker-compose), dashboards y documento</text>
+
+  <!-- ===================== USUARIOS ===================== -->
+  <text x="1232" y="114" class="h">USUARIOS</text>
+  <rect x="1230" y="180" width="150" height="70" rx="12" class="box"/>
+  <text x="1305" y="210" text-anchor="middle" class="n">Navegador</text><text x="1305" y="228" text-anchor="middle" class="s">profesor / público</text>
+  <rect x="1230" y="330" width="150" height="70" rx="12" class="box"/>
+  <text x="1305" y="360" text-anchor="middle" class="n">Operador</text><text x="1305" y="378" text-anchor="middle" class="s">envía retroceso</text>
+  <rect x="1230" y="460" width="150" height="70" rx="12" class="box"/>
+  <text x="1305" y="490" text-anchor="middle" class="n">Telegram</text><text x="1305" y="508" text-anchor="middle" class="s">alertas críticas</text>
+  <rect x="1230" y="20" width="150" height="62" rx="12" fill="#EEF4FA" stroke="#2E7FC0"/>
+  <text x="1305" y="44" text-anchor="middle" class="n">Azure Maps</text><text x="1305" y="62" text-anchor="middle" class="s">atlas.microsoft.com</text>
+
+  <!-- ===================== FLECHAS ===================== -->
+  <!-- uplink dispositivos -> broker -->
+  <path d="M304 200 C 340 200, 350 220, 388 225" class="up" marker-end="url(#a)"/>
+  <path d="M304 380 C 340 380, 350 280, 388 265" class="up" marker-end="url(#a)"/>
+  <path d="M304 762 C 345 762, 350 470, 388 470" class="up" marker-end="url(#a)"/>
+  <!-- downlink broker -> dispositivos -->
+  <path d="M388 250 C 350 250, 345 230, 306 228" class="down" marker-end="url(#r)"/>
+  <path d="M388 290 C 350 300, 345 410, 306 410" class="down" marker-end="url(#r)"/>
+  <path d="M388 490 C 350 500, 345 790, 306 795" class="down" marker-end="url(#r)"/>
+  <text x="326" y="566" class="lbl" style="fill:#C2410C" transform="rotate(-90 326 566)">↓ comandos (retroceso)</text>
+  <!-- broker <-> node-red -->
+  <path d="M592 230 L 638 230" class="up" marker-end="url(#a)"/>
+  <path d="M638 262 L 592 262" class="down" marker-end="url(#r)"/>
+  <!-- broker -> telegraf -> influx -> grafana -->
+  <path d="M592 465 L 638 465" class="up" marker-end="url(#a)"/>
+  <path d="M760 465 L 778 465" class="up" marker-end="url(#a)"/>
+  <path d="M900 450 C 930 450, 925 260, 948 260" class="up" marker-end="url(#a)"/>
+  <!-- panel <-> broker por wss (via caddy) -->
+  <path d="M950 410 C 760 560, 650 540, 592 500" class="http" marker-end="url(#b)"/>
+  <text x="760" y="548" class="lbl" style="fill:#2E7FC0">MQTT sobre WSS (/mqtt)</text>
+  <!-- node-red -> azure maps -->
+  <path d="M780 180 L780 150 L1205 150 L1205 52 L1228 52" class="http" marker-end="url(#b)"/>
+  <text x="960" y="144" class="lbl" style="fill:#2E7FC0">HTTPS GET + subscription-key (DEV-03/04)</text>
+  <!-- DEV-10 HTTP -> node-red -->
+  <path d="M304 780 C 520 840, 600 400, 640 372" class="http" marker-end="url(#b)"/>
+  <!-- usuarios -> caddy -->
+  <path d="M1228 215 C 1200 215, 1200 495, 1182 500" class="up" marker-end="url(#a)"/>
+  <path d="M1228 365 C 1205 365, 1205 510, 1182 515" class="up" marker-end="url(#a)"/>
+  <path d="M900 380 L925 380 L925 565 L1210 565 L1210 510 L1228 510" class="http" marker-end="url(#b)"/>
+  <text x="1188" y="285" class="lbl">HTTPS 443</text>
+
+  <!-- leyenda -->
+  <g transform="translate(1230,720)">
+    <line x1="0" y1="0" x2="30" y2="0" class="up"/><text x="38" y="4" class="s">uplink / datos</text>
+    <line x1="0" y1="22" x2="30" y2="22" class="down"/><text x="38" y="26" class="s">downlink (retroceso)</text>
+    <line x1="0" y1="44" x2="30" y2="44" class="http"/><text x="38" y="48" class="s">HTTP(S) / WSS</text>
+  </g>
+</svg>

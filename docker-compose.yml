@@ -1,0 +1,148 @@
+# =====================================================================
+#  CacaoSmart IoT - Infraestructura completa (un solo `docker compose up -d`)
+#
+#  Capa 1  Percepción ......... twins, datasets  (+ ESP32 reales por Internet)
+#  Capa 2  Transporte ......... mosquitto (MQTT 1883 / MQTT-WebSocket 9001)
+#  Capa 3  Procesamiento ...... nodered (orquestador/reglas/API), telegraf, influxdb
+#  Capa 4  Aplicación ......... grafana, panel web, caddy (HTTPS + URL propia)
+# =====================================================================
+name: cacaosmart
+
+x-common: &common
+  restart: unless-stopped
+  env_file: .env
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+  networks: [iot]
+
+services:
+  # ------------------------------------------------------------ CAPA 2
+  mosquitto:
+    <<: *common
+    image: eclipse-mosquitto:2.0.20
+    entrypoint: ["/bin/sh", "/mosquitto/config/entrypoint.sh"]
+    ports:
+      - "1883:1883"          # MQTT/TCP para dispositivos reales (ESP32)
+    volumes:
+      - ./infra/mosquitto:/mosquitto/config:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -u $$MQTT_SERVICE_USER -P $$MQTT_SERVICE_PASS -t '$$SYS/broker/uptime' -C 1 -W 3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------ CAPA 3
+  influxdb:
+    <<: *common
+    image: influxdb:2.7.11
+    ports:
+      - "127.0.0.1:8086:8086"   # sólo localhost (exportes / backfill); el público no lo ve
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_ADMIN_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_ADMIN_PASS}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET}
+      DOCKER_INFLUXDB_INIT_RETENTION: ${INFLUX_RETENTION}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN}
+    volumes:
+      - influx-data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 15s
+      retries: 5
+
+  telegraf:
+    <<: *common
+    image: telegraf:1.32.3
+    volumes:
+      - ./infra/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      mosquitto: { condition: service_healthy }
+      influxdb: { condition: service_healthy }
+
+  nodered:
+    <<: *common
+    image: nodered/node-red:4.0.5
+    volumes:
+      - ./infra/nodered/settings.js:/data/settings.js:ro
+      - ./infra/nodered/flows.json:/data/flows.json
+      - nodered-data:/data
+    depends_on:
+      mosquitto: { condition: service_healthy }
+
+  # ------------------------------------------------------------ CAPA 1
+  twins:
+    <<: *common
+    build: ./devices
+    command: ["python", "-m", "cacaosmart.run_twins"]
+    depends_on:
+      mosquitto: { condition: service_healthy }
+
+  datasets:
+    <<: *common
+    build: ./devices
+    command: ["python", "-m", "cacaosmart.run_datasets"]
+    environment:
+      INGEST_URL: http://nodered:1880/api/ingest
+    depends_on:
+      mosquitto: { condition: service_healthy }
+      nodered: { condition: service_started }
+
+  # Emulador de los ESP32 reales (sólo pruebas sin hardware):
+  #   docker compose --profile emulador up -d
+  emulador-esp32:
+    <<: *common
+    build: ./devices
+    command: ["python", "-m", "cacaosmart.run_emulator"]
+    profiles: ["emulador"]
+    depends_on:
+      mosquitto: { condition: service_healthy }
+
+  # ------------------------------------------------------------ CAPA 4
+  grafana:
+    <<: *common
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASS}
+      GF_SERVER_ROOT_URL: ${PUBLIC_URL}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/01-vision-general.json
+      GF_USERS_DEFAULT_THEME: dark
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: America/Bogota
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      influxdb: { condition: service_healthy }
+
+  caddy:
+    <<: *common
+    image: caddy:2.8.4
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/srv/web:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [grafana, nodered, mosquitto]
+
+networks:
+  iot:
+
+volumes:
+  mosquitto-data:
+  influx-data:
+  nodered-data:
+  grafana-data:
+  caddy-data:
+  caddy-config:

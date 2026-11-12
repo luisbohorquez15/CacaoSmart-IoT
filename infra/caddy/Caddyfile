@@ -1,0 +1,38 @@
+# ================= CacaoSmart IoT - Caddy (HTTPS automático Let's Encrypt) =================
+{
+	email {$ACME_EMAIL}
+}
+
+{$PUBLIC_URL} {
+	encode gzip zstd
+
+	# MQTT sobre WebSocket seguro para el panel (wss://dominio/mqtt)
+	handle /mqtt* {
+		reverse_proxy mosquitto:9001
+	}
+
+	# Grafana (visualización)
+	handle /grafana* {
+		reverse_proxy grafana:3000
+	}
+
+	# API REST (endpoints de comandos/ingesta en Node-RED) y editor de Node-RED
+	handle /api/* {
+		reverse_proxy nodered:1880
+	}
+	handle /nodered* {
+		reverse_proxy nodered:1880
+	}
+
+	# Panel de control (front)
+	handle {
+		root * /srv/web
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

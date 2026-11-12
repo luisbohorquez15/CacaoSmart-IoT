@@ -1,0 +1,328 @@
+{
+ "apiVersion": 1,
+ "groups": [
+  {
+   "orgId": 1,
+   "name": "cacaosmart-reglas",
+   "folder": "CacaoSmart",
+   "interval": "1m",
+   "rules": [
+    {
+     "uid": "al-monilia",
+     "title": "Riesgo de Moniliasis (HR > 88 % por 4 h)",
+     "condition": "C",
+     "for": "5m",
+     "noDataState": "OK",
+     "execErrState": "OK",
+     "annotations": {
+      "summary": "La humedad relativa del dosel lleva 4 h por encima de 88 %: condiciones favorables para Moniliophthora roreri."
+     },
+     "labels": {
+      "severity": "critical",
+      "proyecto": "cacaosmart"
+     },
+     "data": [
+      {
+       "refId": "A",
+       "relativeTimeRange": {
+        "from": 21600,
+        "to": 0
+       },
+       "datasourceUid": "influx-cacao",
+       "model": {
+        "refId": "A",
+        "query": "from(bucket: \"cacaosmart\") |> range(start: -4h)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-01\" and r._field == \"hr_pct\")\n  |> min()",
+        "intervalMs": 60000,
+        "maxDataPoints": 43200
+       }
+      },
+      {
+       "refId": "B",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "B",
+        "type": "reduce",
+        "expression": "A",
+        "reducer": "last",
+        "settings": {
+         "mode": "dropNN"
+        }
+       }
+      },
+      {
+       "refId": "C",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "C",
+        "type": "threshold",
+        "expression": "B",
+        "conditions": [
+         {
+          "evaluator": {
+           "type": "gt",
+           "params": [
+            88
+           ]
+          }
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "uid": "al-marquesina",
+     "title": "Sobrecalentamiento en marquesina (> 46 °C)",
+     "condition": "C",
+     "for": "2m",
+     "noDataState": "OK",
+     "execErrState": "OK",
+     "annotations": {
+      "summary": "Temperatura interna de secado > 46 °C: riesgo de acidez y grano arrebatado."
+     },
+     "labels": {
+      "severity": "critical",
+      "proyecto": "cacaosmart"
+     },
+     "data": [
+      {
+       "refId": "A",
+       "relativeTimeRange": {
+        "from": 21600,
+        "to": 0
+       },
+       "datasourceUid": "influx-cacao",
+       "model": {
+        "refId": "A",
+        "query": "from(bucket: \"cacaosmart\") |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-08\" and r._field == \"temp_interna_c\")\n  |> mean()",
+        "intervalMs": 60000,
+        "maxDataPoints": 43200
+       }
+      },
+      {
+       "refId": "B",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "B",
+        "type": "reduce",
+        "expression": "A",
+        "reducer": "last",
+        "settings": {
+         "mode": "dropNN"
+        }
+       }
+      },
+      {
+       "refId": "C",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "C",
+        "type": "threshold",
+        "expression": "B",
+        "conditions": [
+         {
+          "evaluator": {
+           "type": "gt",
+           "params": [
+            46
+           ]
+          }
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "uid": "al-fermentacion",
+     "title": "Fermentación fuera de rango (> 50 °C)",
+     "condition": "C",
+     "for": "5m",
+     "noDataState": "OK",
+     "execErrState": "OK",
+     "annotations": {
+      "summary": "La masa de cacao supera 50 °C: se requiere volteo."
+     },
+     "labels": {
+      "severity": "warning",
+      "proyecto": "cacaosmart"
+     },
+     "data": [
+      {
+       "refId": "A",
+       "relativeTimeRange": {
+        "from": 21600,
+        "to": 0
+       },
+       "datasourceUid": "influx-cacao",
+       "model": {
+        "refId": "A",
+        "query": "from(bucket: \"cacaosmart\") |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-07\" and r._field == \"temp_masa_c\")\n  |> mean()",
+        "intervalMs": 60000,
+        "maxDataPoints": 43200
+       }
+      },
+      {
+       "refId": "B",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "B",
+        "type": "reduce",
+        "expression": "A",
+        "reducer": "last",
+        "settings": {
+         "mode": "dropNN"
+        }
+       }
+      },
+      {
+       "refId": "C",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "C",
+        "type": "threshold",
+        "expression": "B",
+        "conditions": [
+         {
+          "evaluator": {
+           "type": "gt",
+           "params": [
+            50
+           ]
+          }
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "uid": "al-presion",
+     "title": "Presión de riego baja (< 12 PSI con bomba)",
+     "condition": "C",
+     "for": "1m",
+     "noDataState": "OK",
+     "execErrState": "OK",
+     "annotations": {
+      "summary": "Posible fuga en la línea de goteo."
+     },
+     "labels": {
+      "severity": "critical",
+      "proyecto": "cacaosmart"
+     },
+     "data": [
+      {
+       "refId": "A",
+       "relativeTimeRange": {
+        "from": 21600,
+        "to": 0
+       },
+       "datasourceUid": "influx-cacao",
+       "model": {
+        "refId": "A",
+        "query": "from(bucket: \"cacaosmart\") |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-06\" and r._field == \"presion_psi\")\n  |> min() |> map(fn: (r) => ({r with _value: if r._value < 12.0 then r._value else 99.0}))",
+        "intervalMs": 60000,
+        "maxDataPoints": 43200
+       }
+      },
+      {
+       "refId": "B",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "B",
+        "type": "reduce",
+        "expression": "A",
+        "reducer": "last",
+        "settings": {
+         "mode": "dropNN"
+        }
+       }
+      },
+      {
+       "refId": "C",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "C",
+        "type": "threshold",
+        "expression": "B",
+        "conditions": [
+         {
+          "evaluator": {
+           "type": "lt",
+           "params": [
+            12
+           ]
+          }
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "uid": "al-suelo",
+     "title": "Suelo seco (< 30 %)",
+     "condition": "C",
+     "for": "10m",
+     "noDataState": "OK",
+     "execErrState": "OK",
+     "annotations": {
+      "summary": "La humedad del suelo está por debajo de 30 % por más de 10 min."
+     },
+     "labels": {
+      "severity": "warning",
+      "proyecto": "cacaosmart"
+     },
+     "data": [
+      {
+       "refId": "A",
+       "relativeTimeRange": {
+        "from": 21600,
+        "to": 0
+       },
+       "datasourceUid": "influx-cacao",
+       "model": {
+        "refId": "A",
+        "query": "from(bucket: \"cacaosmart\") |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-02\" and r._field == \"humedad_suelo_pct\")\n  |> mean()",
+        "intervalMs": 60000,
+        "maxDataPoints": 43200
+       }
+      },
+      {
+       "refId": "B",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "B",
+        "type": "reduce",
+        "expression": "A",
+        "reducer": "last",
+        "settings": {
+         "mode": "dropNN"
+        }
+       }
+      },
+      {
+       "refId": "C",
+       "datasourceUid": "__expr__",
+       "model": {
+        "refId": "C",
+        "type": "threshold",
+        "expression": "B",
+        "conditions": [
+         {
+          "evaluator": {
+           "type": "lt",
+           "params": [
+            30
+           ]
+          }
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
