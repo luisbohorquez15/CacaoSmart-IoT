@@ -1,4 +1,4 @@
-# 🍫 CacaoSmart IoT
+#  CacaoSmart IoT
 
 **Agricultura de precisión para el cultivo y beneficio de cacao fino de aroma en Santander, Colombia.**
 Proyecto final · Internet de las Cosas · *IoT a la medida*
