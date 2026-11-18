@@ -17,7 +17,10 @@ code { font: 8.6pt Consolas, "JetBrains Mono", monospace; background: #f4ede4; p
 .cover { height: 297mm; padding: 26mm 22mm; display: flex; flex-direction: column; justify-content: space-between;
   background: radial-gradient(900px 500px at 85% 10%, rgba(212,162,76,.35), transparent 60%), linear-gradient(160deg, #2a1d14 0%, #4a2e1a 55%, #8b5a2b 130%); color: #f3ece6; }
 .cover-top { font-size: 10pt; letter-spacing: 1.5px; text-transform: uppercase; color: #e8c88a; }
-.cover .emoji { font-size: 64pt; }
+.cover-logo { display: inline-block; background: #f9f6e2; border-radius: 18px; padding: 8mm 10mm; margin-bottom: 8mm;
+              box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.cover-logo img { height: 52mm; display: block; }
+.cover h1.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .cover h1 { font-size: 48pt; margin: 6px 0; color: #fff; letter-spacing: -1px; } .cover h1 span { color: #d4a24c; }
 .cover .subtitle { font-size: 15pt; color: #f0e2d2; max-width: 140mm; text-align: left; }
 .cover .kicker { display: inline-block; margin-top: 14px; padding: 6px 14px; border: 1px solid #d4a24c; border-radius: 30px; color: #f0c674; font-weight: 600; }

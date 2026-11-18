@@ -126,8 +126,8 @@ def build():
 <section class="cover">
   <div class="cover-top">Universidad Autónoma de Bucaramanga · {E(CFG['curso'])}</div>
   <div class="cover-mid">
-    <div class="emoji">🍫</div>
-    <h1>CacaoSmart <span>IoT</span></h1>
+    <div class="cover-logo"><img src="{(DOCS / 'logo.png').as_uri()}" alt="CacaoSmart IoT"></div>
+    <h1 class="sr">CacaoSmart <span>IoT</span></h1>
     <p class="subtitle">Agricultura de precisión para el cultivo y beneficio de cacao fino de aroma en Santander</p>
     <p class="kicker">Proyecto final · IoT a la medida</p>
   </div>
