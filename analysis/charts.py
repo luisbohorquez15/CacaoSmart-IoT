@@ -42,15 +42,16 @@ plt.rcParams.update({
 })
 
 VARS = {  # variable -> (etiqueta, unidad)
-    "dev-01": {"temp_c": ("Temperatura", "°C"), "hr_pct": ("Humedad relativa", "%"), "luz_lux": ("Luminosidad", "lux")},
-    "dev-02": {"humedad_suelo_pct": ("Humedad del suelo", "%"), "bateria_v": ("Batería", "V"), "valvula": ("Electroválvula", "0/1")},
+    "dev-01": {"ruido_dbfs": ("Nivel de ruido (micrófono)", "dBFS"), "movimiento": ("Movimiento / vibración", "m/s²")},
+    "dev-02": {"cpu_pct": ("Carga de CPU", "%"), "ram_pct": ("Memoria RAM", "%"), "disco_pct": ("Uso de disco", "%"),
+               "valvula": ("Electroválvula (actuador)", "0/1"), "led": ("LED aviso UV (actuador)", "0/1")},
     "dev-03": {"temp_c": ("Temperatura exterior", "°C"), "hr_pct": ("Humedad relativa", "%"), "uv_index": ("Índice UV", ""),
                "viento_kmh": ("Viento", "km/h"), "nubosidad_pct": ("Nubosidad", "%"), "presion_hpa": ("Presión", "hPa")},
     "dev-04": {"prob_lluvia_pct": ("Prob. lluvia próx. hora", "%"), "prob_lluvia_max_12h": ("Prob. lluvia máx. 12 h", "%"),
                "precip_12h_mm": ("Lluvia esperada 12 h", "mm"), "nubosidad_pct": ("Nubosidad", "%")},
     "dev-05": {"cierre_pct": ("Cierre de malla", "%"), "rad_ext_wm2": ("Radiación exterior", "W/m²"),
                "rad_filtrada_wm2": ("Radiación filtrada", "W/m²"), "corriente_a": ("Corriente motor", "A")},
-    "dev-06": {"caudal_lpm": ("Caudal", "L/min"), "presion_psi": ("Presión de línea", "PSI"), "consumo_l": ("Consumo diario", "L")},
+    "dev-06": {"humedad_suelo_pct": ("Humedad del suelo", "%"), "caudal_lpm": ("Caudal", "L/min"), "presion_psi": ("Presión de línea", "PSI"), "consumo_l": ("Consumo diario", "L")},
     "dev-07": {"temp_masa_c": ("Temperatura de la masa", "°C"), "ph_mucilago": ("pH del mucílago", ""),
                "horas_fermentacion": ("Horas de fermentación", "h")},
     "dev-08": {"humedad_grano_pct": ("Humedad del grano", "%"), "temp_interna_c": ("Temperatura interna", "°C"),
@@ -60,8 +61,8 @@ VARS = {  # variable -> (etiqueta, unidad)
     "dev-10": {"humedad_objetivo_pct": ("Humedad objetivo", "%"), "temp_optima_c": ("Temperatura óptima", "°C"),
                "indice_calidad": ("Índice de calidad", "pts")},
 }
-NAMES = {"dev-01": "Nodo microclima (ESP32)", "dev-02": "Nodo suelo y riego (ESP32)", "dev-03": "Azure Maps · condiciones actuales",
-         "dev-04": "Azure Maps · pronóstico", "dev-05": "Polisombra (gemelo)", "dev-06": "Bomba de goteo (gemelo)",
+NAMES = {"dev-01": "Nodo móvil de campo (iPhone real)", "dev-02": "Estación de borde y actuadores (PC real)", "dev-03": "Azure Maps · condiciones actuales",
+         "dev-04": "Azure Maps · pronóstico", "dev-05": "Polisombra (gemelo)", "dev-06": "Bomba de goteo y suelo (gemelo)",
          "dev-07": "Cajón de fermentación (gemelo)", "dev-08": "Marquesina de secado (gemelo)",
          "dev-09": "Histórico climático 2025 (dataset)", "dev-10": "Curva ideal de secado (dataset)"}
 
@@ -73,7 +74,14 @@ def load(folder: Path):
         if f.exists():
             df = pd.read_csv(f)
             df["time"] = pd.to_datetime(df["time"], utc=True, format="ISO8601").dt.tz_convert(TZ)
-            dfs[dev] = df.set_index("time").sort_index()
+            df = df.set_index("time").sort_index()
+            # DEV-01/02 son dispositivos reales (iPhone y PC) desde el 14-nov; antes había un emulador de prueba.
+            first = {"dev-01": "ruido_dbfs", "dev-02": "cpu_pct"}.get(dev)
+            if first and first in df and df[first].notna().any():
+                df = df.loc[df[first].first_valid_index():, [c for c in VARS[dev] if c in df]]
+            if dev == "dev-01" and "ruido_dbfs" in df:      # -120 dBFS = micrófono suspendido por iOS (no es silencio real)
+                df.loc[df["ruido_dbfs"] <= -110, "ruido_dbfs"] = np.nan
+            dfs[dev] = df
     ev = pd.read_csv(folder / "eventos.csv") if (folder / "eventos.csv").exists() else pd.DataFrame(columns=["time", "device", "kind", "name", "src", "msg"])
     if len(ev):
         ev["time"] = pd.to_datetime(ev["time"], utc=True, format="ISO8601").dt.tz_convert(TZ)
@@ -133,27 +141,29 @@ def figures(d, ev):
     r = lambda dev, c, rule="10min": d[dev][c].resample(rule).mean()  # noqa: E731
 
     if "dev-01" in d:
-        fig, ax = panels(3, "DEV-01 · Nodo microclima del lote (ESP32 + DHT22 + LDR)")
-        line(ax[0], r("dev-01", "temp_c"), "Temperatura", P[0], unit="°C")
-        ax[0].axhspan(26, ax[0].get_ylim()[1], color=BAND_BAD, alpha=0.06)
-        ax[0].set_title("Temperatura bajo el dosel (sombreado: > 26 °C, condición de Moniliasis)")
-        line(ax[1], r("dev-01", "hr_pct"), "Humedad relativa", P[1], unit="%")
-        ax[1].axhline(88, color=REF, linestyle=(0, (5, 3)), linewidth=1, label="Umbral Moniliasis 88 %")
-        ax[1].set_title("Humedad relativa")
-        line(ax[2], r("dev-01", "luz_lux") / 1000, "Luminosidad", P[4], unit="klux")
-        ax[2].set_title("Luminosidad bajo sombra (miles de lux)")
+        fig, ax = panels(2, "DEV-01 · Nodo móvil de campo (iPhone real · micrófono y acelerómetro · MQTT sobre WSS)")
+        line(ax[0], r("dev-01", "ruido_dbfs"), "Ruido promedio 10 min", P[3], unit="dBFS")
+        ax[0].set_title("Nivel de ruido ambiental (más alto = más actividad: personas, maquinaria, lluvia)")
+        line(ax[1], r("dev-01", "movimiento"), "Movimiento", P[1], unit="m/s²")
+        ax[1].set_title("Movimiento / vibración del equipo (desviación de la aceleración)")
+        if len(ev):
+            for t in ev[(ev.device == "dev-01") & (ev.kind == "command") & (ev.time >= d["dev-01"].index[0])].time:
+                ax[0].axvline(t, color=P[0], linewidth=1, alpha=0.7)
+            ax[0].plot([], [], color=P[0], label="Alarma remota (retroceso)")
         save(fig, "dev01.png")
 
     if "dev-02" in d:
-        fig, ax = panels(2, "DEV-02 · Nodo de suelo y riego (ESP32 + sensor capacitivo + relé)")
-        shade_on(ax[0], d["dev-02"]["valvula"].resample("5min").max(), P[1], "Riego activo (relé ON)")
-        line(ax[0], r("dev-02", "humedad_suelo_pct"), "Humedad del suelo", P[2], unit="%")
-        if "dev-09" in d:
-            line(ax[0], r("dev-09", "humedad_suelo_ref_pct", "1h"), "Referencia 2025 (DEV-09)", P[2], ref=True)
-        ax[0].axhline(35, color=P[0], linestyle=(0, (2, 2)), linewidth=1, label="Umbral 35 %")
-        ax[0].set_title("Humedad volumétrica del suelo y eventos de riego (Lazo 2)")
-        line(ax[1], r("dev-02", "bateria_v"), "Batería", P[4], unit="V")
-        ax[1].set_title("Voltaje de batería del nodo (carga solar diurna)")
+        fig, ax = panels(2, "DEV-02 · Estación de borde (PC real · python) con electroválvula y LED de aviso")
+        line(ax[0], r("dev-02", "cpu_pct"), "CPU", P[0], unit="%")
+        line(ax[0], r("dev-02", "ram_pct"), "RAM", P[1])
+        line(ax[0], r("dev-02", "disco_pct"), "Disco", P[2])
+        ax[0].set_title("Recursos del equipo de borde")
+        v = d["dev-02"]["valvula"].resample("5min").max()
+        l = d["dev-02"]["led"].resample("5min").max()
+        ax[1].fill_between(v.index, 1.1, 1.1 + 0.8 * v.fillna(0).values, step="post", color=P[1], alpha=0.8, linewidth=0, label="Electroválvula abierta (riego)")
+        ax[1].fill_between(l.index, 0, 0.8 * l.fillna(0).values, step="post", color=P[4], alpha=0.8, linewidth=0, label="LED aviso UV encendido")
+        ax[1].set_yticks([0.4, 1.5], ["LED UV", "Válvula"]); ax[1].grid(False, axis="y")
+        ax[1].set_title("Actuadores ejecutados por el retroceso (motor de reglas y panel)")
         save(fig, "dev02.png")
 
     if "dev-03" in d:
@@ -193,7 +203,16 @@ def figures(d, ev):
         save(fig, "dev05.png")
 
     if "dev-06" in d:
-        fig, ax = panels(3, "DEV-06 · Gemelo digital de la bomba y caudalímetro de goteo", h=1.7)
+        fig, ax = panels(4, "DEV-06 · Gemelo digital de la bomba de goteo y humedad del suelo", h=1.7)
+        v2 = d["dev-02"]["valvula"].resample("5min").max() if "dev-02" in d else None
+        if v2 is not None:
+            shade_on(ax[3], v2, P[1], "Válvula DEV-02 abierta")
+        line(ax[3], r("dev-06", "humedad_suelo_pct"), "Humedad del suelo", P[2], unit="%")
+        if "umbral_pct" in d["dev-06"]:
+            line(ax[3], d["dev-06"]["umbral_pct"].resample("10min").last(), "Umbral de riego", P[0], step=True)
+        if "dev-09" in d:
+            line(ax[3], r("dev-09", "humedad_suelo_ref_pct", "1h"), "Referencia 2025 (DEV-09)", P[2], ref=True)
+        ax[3].set_title("Humedad del suelo y Lazo 2 (riego predictivo con pronóstico de Azure Maps)")
         q = d["dev-06"]["caudal_lpm"].resample("5min").max()
         ax[0].fill_between(q.index, 0, q.values, color=P[1], alpha=0.25, step="post", linewidth=0)
         line(ax[0], q, "Caudal", P[1], step=True, unit="L/min")
@@ -258,7 +277,7 @@ def figures(d, ev):
         ax[0].set_xlabel("Índice UV (DEV-03, Azure)"); ax[0].set_ylabel("Cierre de malla % (DEV-05)")
         ax[0].set_title("Lazo 1: UV vs. cierre de la polisombra (por hora)")
         keys = [("dev-03", "temp_c", "T ext"), ("dev-03", "hr_pct", "HR ext"), ("dev-03", "uv_index", "UV"),
-                ("dev-02", "humedad_suelo_pct", "Suelo"), ("dev-05", "rad_filtrada_wm2", "Rad filt"),
+                ("dev-06", "humedad_suelo_pct", "Suelo"), ("dev-05", "rad_filtrada_wm2", "Rad filt"),
                 ("dev-08", "temp_interna_c", "T marq"), ("dev-07", "temp_masa_c", "T masa"), ("dev-09", "temp_ref_c", "T 2025")]
         m = pd.concat({k[2]: d[k[0]][k[1]].resample("1h").mean() for k in keys if k[0] in d}, axis=1).corr()
         cmap = matplotlib.colors.LinearSegmentedColormap.from_list("div", ["#2E7FC0", "#F2F0EE", "#D9622B"])

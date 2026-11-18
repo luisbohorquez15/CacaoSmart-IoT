@@ -7,6 +7,7 @@ mosquitto_passwd -b "$PW" "$MQTT_SERVICE_USER"  "$MQTT_SERVICE_PASS"
 mosquitto_passwd -b "$PW" "$MQTT_DEVICE_USER"   "$MQTT_DEVICE_PASS"
 mosquitto_passwd -b "$PW" "$MQTT_VIEWER_USER"   "$MQTT_VIEWER_PASS"
 mosquitto_passwd -b "$PW" "$MQTT_OPERATOR_USER" "$MQTT_OPERATOR_PASS"
+[ -n "$MQTT_PHONE_PASS" ] && mosquitto_passwd -b "$PW" "${MQTT_PHONE_USER:-celular}" "$MQTT_PHONE_PASS"
 cp /mosquitto/config/acl /mosquitto/data/acl
 chown mosquitto:mosquitto "$PW" /mosquitto/data/acl
 chmod 0700 /mosquitto/data/acl

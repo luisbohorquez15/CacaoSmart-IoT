@@ -4,8 +4,8 @@
 //  deseado con el estado real reportado por el dispositivo (status retenido) y sólo envía
 //  comandos cuando difieren, con tiempos de enfriamiento para evitar oscilaciones.
 //
-//  Lazo 1  Protección solar ......... UV (DEV-03) >= 8 -> polisombra DEV-05 al 80 % + LED DEV-01
-//  Lazo 2  Riego predictivo ......... suelo DEV-02 < umbral -> consulta lluvia DEV-04 -> relé DEV-02 + bomba DEV-06
+//  Lazo 1  Protección solar ......... UV (DEV-03) >= 8 -> polisombra DEV-05 al 80 % + LED de aviso en DEV-02 (portátil)
+//  Lazo 2  Riego predictivo ......... suelo (DEV-06) < umbral -> consulta lluvia DEV-04 -> válvula DEV-02 + bomba DEV-06
 //  Lazo 4  Fermentación ............. masa DEV-07 > 50 °C o 48/96 h -> VOLTEO
 //  Lazo 5  Secado ................... marquesina DEV-08 > 45 °C -> extractores + compuertas; lluvia -> cerrar
 //  Alertas Moniliasis, fuga, sobrecalentamiento, desviación vs. curva ideal (DEV-10), anomalía DEV-09
@@ -55,44 +55,49 @@ switch (dev) {
     const actual = sh('dev-05').objetivo_pct;
     if (deseado !== null && online('dev-05') && !manual('dev-05') && actual !== deseado && cool('shade', 5)) {
       cmd('dev-05', { cmd: 'SET_SHADE', value: deseado });
-      cmd('dev-01', { cmd: 'LED', state: deseado === 80 ? 'on' : 'off' });
+      cmd('dev-02', { cmd: 'LED', state: deseado === 80 ? 'on' : 'off' });
       if (deseado === 80) alert('dev-03', 'uv_alto', 'warning', `Índice UV ${uv} ≥ 8: polisombra al 80 % y LED de aviso encendido`, uv, 180);
     }
+    // Moniliasis: HR > 88 % y T > 26 °C sostenidas 4 h (condiciones medidas por Azure Maps)
+    if (Number(p.hr_pct) > 88 && Number(p.temp_c) > 26) {
+      st.monil = st.monil || now;
+      const horas = (now - st.monil) / 3600000;
+      if (horas >= 4) alert('dev-03', 'moniliasis', 'critical', `Riesgo de Moniliasis: HR > 88 % y T > 26 °C sostenidos ${horas.toFixed(1)} h`, p.hr_pct, 360);
+    } else st.monil = null;
     if (Number(p.temp_c) >= 34) alert('dev-03', 'calor_extremo', 'warning', `Temperatura exterior ${p.temp_c} °C: riesgo de estrés térmico en plántulas`, p.temp_c, 240);
     break;
   }
-  // ---------------------------------------------------------- LAZO 2: riego predictivo
+  // ---------------------------------------------------------- DEV-02 portátil (estación de borde real)
   case 'dev-02': {
+    if (Number(p.cargador) === 0 && Number(p.bateria_pct) > 0 && Number(p.bateria_pct) < 20)
+      alert('dev-02', 'bateria_baja', 'warning', `Batería del portátil ${p.bateria_pct} % sin cargador`, p.bateria_pct, 120);
+    if (p.wifi_pct !== undefined && Number(p.wifi_pct) < 25)
+      alert('dev-02', 'wifi_debil', 'info', `Señal Wi-Fi débil en la estación de borde: ${p.wifi_pct} %`, p.wifi_pct, 240);
+    break;
+  }
+  // ---------------------------------------------------------- DEV-01 celular (nodo móvil real)
+  case 'dev-01': {
+    if (Number(p.cargando) === 0 && Number(p.bateria_pct) > 0 && Number(p.bateria_pct) < 15)
+      alert('dev-01', 'bateria_baja', 'warning', `Batería del celular ${p.bateria_pct} %: conéctelo al cargador`, p.bateria_pct, 120);
+    break;
+  }
+  // ---------------------------------------------------------- LAZO 2: riego predictivo + bomba (fugas)
+  case 'dev-06': {
     const h = Number(p.humedad_suelo_pct);
     const umbral = Number(p.umbral_pct || 35);
-    if (h < umbral && !p.valvula && !manual('dev-02') && cool('riego', 45)) {
+    if (!isNaN(h) && h < umbral && !Number(p.bomba) && !manual('dev-06') && cool('riego', 45)) {
       const fc = data('dev-04');
       const prob = fresh('dev-04', 60) ? Number(fc.prob_lluvia_3h_pct ?? fc.prob_lluvia_pct) : null;
       const ahorro = sh('dev-04').ahorro_agua !== 0;
       if (prob !== null && prob > 65 && ahorro) {
-        alert('dev-02', 'riego_inhibido', 'info', `Suelo ${h} % < ${umbral} %, pero lluvia ${prob} % > 65 %: riego bloqueado (ahorro hídrico)`, h, 60);
+        alert('dev-06', 'riego_inhibido', 'info', `Suelo ${h} % < ${umbral} %, pero lluvia ${prob} % > 65 %: riego bloqueado (ahorro hídrico)`, h, 60);
       } else {
         const mins = (prob === null || prob < 30) ? 15 : 8;   // lluvia incierta 30-65 % -> riego reducido
-        cmd('dev-02', { cmd: 'RELAY', state: 'ON', duration_min: mins });
+        cmd('dev-02', { cmd: 'RELAY', state: 'ON', duration_min: mins });   // válvula física en la estación de borde
         cmd('dev-06', { cmd: 'START', duration_min: mins, flow: 30 });
-        alert('dev-02', 'riego_auto', 'info', `Riego automático ${mins} min (suelo ${h} %, prob. lluvia ${prob === null ? 's/d' : prob + ' %'})`, h, 30);
+        alert('dev-06', 'riego_auto', 'info', `Riego automático ${mins} min (suelo ${h} %, prob. lluvia ${prob === null ? 's/d' : prob + ' %'})`, h, 30);
       }
     }
-    if (Number(p.bateria_v) > 0 && Number(p.bateria_v) < 3.5) alert('dev-02', 'bateria_baja', 'warning', `Batería del nodo ${p.bateria_v} V`, p.bateria_v, 360);
-    break;
-  }
-  // ---------------------------------------------------------- Moniliasis (microclima)
-  case 'dev-01': {
-    const riesgo = Number(p.hr_pct) > 88 && Number(p.temp_c) > 26;
-    if (riesgo) {
-      st.monil = st.monil || now;
-      const horas = (now - st.monil) / 3600000;
-      if (horas >= 4) alert('dev-01', 'moniliasis', 'critical', `Riesgo de Moniliasis: HR > 88 % y T > 26 °C sostenidos ${horas.toFixed(1)} h`, p.hr_pct, 360);
-    } else st.monil = null;
-    break;
-  }
-  // ---------------------------------------------------------- Bomba (fugas)
-  case 'dev-06': {
     if (Number(p.emergencia) === 1) alert('dev-06', 'fuga', 'critical', `Parada de emergencia de la bomba: presión ${p.presion_psi} PSI (posible fuga)`, p.presion_psi, 30);
     else if (Number(p.bomba) === 1 && Number(p.presion_psi) < 15) alert('dev-06', 'presion_baja', 'warning', `Presión de línea baja ${p.presion_psi} PSI`, p.presion_psi, 30);
     break;

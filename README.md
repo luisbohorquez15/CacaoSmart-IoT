@@ -3,7 +3,7 @@
 **Agricultura de precisión para el cultivo y beneficio de cacao fino de aroma en Santander, Colombia.**
 Proyecto final · Internet de las Cosas · *IoT a la medida*
 
-10 dispositivos (2 reales ESP32 · 2 API Azure Maps · 4 gemelos digitales · 2 datasets) → MQTT (Mosquitto) → Node-RED (motor de reglas + API REST) → InfluxDB → Grafana, con **retroceso** (encender, apagar, calibrar, ajustar) desde un panel web propio, la API REST o el motor de reglas automático. Todo desplegado en **Azure** con URL propia y HTTPS.
+10 dispositivos (2 reales: un iPhone y un PC · 2 API Azure Maps · 4 gemelos digitales · 2 datasets) → MQTT (Mosquitto) → Node-RED (motor de reglas + API REST) → InfluxDB → Grafana, con **retroceso** (encender, apagar, calibrar, ajustar) desde un panel web propio, la API REST o el motor de reglas automático. Todo desplegado en **Azure** con URL propia y HTTPS.
 
 | | |
 |---|---|
@@ -18,12 +18,12 @@ Proyecto final · Internet de las Cosas · *IoT a la medida*
 
 | ID | Dispositivo | Tipo | Variables principales | Protocolo | Retroceso |
 |----|-------------|------|-----------------------|-----------|-----------|
-| DEV-01 | Nodo microclima lote (ESP32 + DHT22 + LDR) | Real | temp, HR, lux, RSSI | MQTT/TCP | CALIBRATE, LED, SET_INTERVAL, POWER, REBOOT |
-| DEV-02 | Nodo suelo y riego (ESP32 + capacitivo + relé) | Real | humedad suelo, válvula, batería | MQTT/TCP | RELAY, SET_THRESHOLD, SET_MODE, CALIBRATE |
+| DEV-01 | Nodo móvil de campo (iPhone + `web/sensor.html` en Safari) | Real | ruido (dBFS), movimiento (m/s²), alarma | MQTT sobre WSS | ALARMA, POWER, SET_INTERVAL, CALIBRATE |
+| DEV-02 | Estación de borde (PC + `devices/real/portatil/dev02_portatil.py`) | Real | CPU, RAM, disco, válvula, LED | MQTT/TCP | RELAY, LED, SET_MODE, CALIBRATE, POWER |
 | DEV-03 | Estación meteo (Azure Maps Current Conditions) | API | temp, sensación, HR, UV, viento, nubosidad, presión, lluvia | HTTPS REST → MQTT | SET_INTERVAL, SET_LOCATION, POLL_NOW, POWER |
 | DEV-04 | Pronóstico (Azure Maps Hourly Forecast) | API | prob. lluvia 1/3/12 h, lluvia 12 h, nubosidad | HTTPS REST → MQTT | AHORRO_AGUA, SET_INTERVAL, POLL_NOW |
 | DEV-05 | Polisombra motorizada | Gemelo | cierre %, corriente, radiación ext./filtrada | MQTT | SET_SHADE, SET_MODE |
-| DEV-06 | Bomba y caudalímetro de goteo | Gemelo | caudal, presión, consumo | MQTT | START/STOP, SET_FLOW, LEAK |
+| DEV-06 | Bomba de goteo y humedad del suelo | Gemelo | humedad suelo, caudal, presión, consumo | MQTT | START/STOP, SET_THRESHOLD, SET_FLOW, LEAK |
 | DEV-07 | Cajón de fermentación | Gemelo | temp masa, pH, horas, volteos | MQTT | VOLTEO, RESET_CYCLE |
 | DEV-08 | Marquesina de secado solar | Gemelo | humedad grano, temp/HR interna, extractores, compuertas | MQTT | EXTRACTORES, COMPUERTAS, RESET_BATCH |
 | DEV-09 | Histórico clima cosecha 2025 (ERA5) | Dataset | temp, HR, suelo, ET0, lluvia, radiación | MQTT | PAUSE/RESUME, SET_SPEED, INJECT_ANOMALY |
@@ -45,9 +45,9 @@ Zonas: `lote1` (01, 02, 05, 06) · `clima` (03, 04) · `beneficio` (07, 08) · `
 
 | Lazo | Condición | Acción |
 |------|-----------|--------|
-| 1 · Protección solar | UV (DEV-03) ≥ 8 | Polisombra DEV-05 al 80 % + LED DEV-01 (vuelve a 30 % con UV ≤ 5) |
-| 2 · Riego predictivo | Suelo DEV-02 < umbral | Consulta DEV-04: lluvia < 30 % → riego 15 min; 30–65 % → 8 min; > 65 % → inhibido |
-| 3 · Calibración remota | Operador | CALIBRATE offset/intervalo en el ESP32 |
+| 1 · Protección solar | UV (DEV-03) ≥ 8 | Polisombra DEV-05 al 80 % + LED de aviso del PC DEV-02 (vuelve a 30 % con UV ≤ 5) |
+| 2 · Riego predictivo | Suelo DEV-06 < umbral | Consulta DEV-04: lluvia < 30 % → riego 15 min; 30–65 % → 8 min; > 65 % → inhibido (abre la válvula real del PC DEV-02 + bomba DEV-06) |
+| 3 · Calibración remota | Operador | CALIBRATE offset/intervalo en cualquier dispositivo |
 | 4 · Fermentación | Masa > 50 °C o 48/96 h | VOLTEO |
 | 5 · Secado | Marquesina > 45 °C / < 40 °C / lluvia | Extractores y compuertas |
 | Alertas | Moniliasis (HR > 88 % y T > 26 °C, 4 h), sobrecalentamiento > 46 °C, fuga, secado retrasado, offline | MQTT + Grafana + Telegram |
@@ -91,7 +91,7 @@ Edite `docs/informe.config.json` (integrantes, docente, URL, GitHub) antes de ge
 docker-compose.yml        infraestructura completa (8 servicios)
 infra/                    mosquitto (conf, ACL), telegraf, caddy, node-red (flows + funciones JS), grafana (dashboards, alertas)
 devices/cacaosmart/       núcleo de dispositivo, modelos físicos, gemelos, datasets, emulador ESP32
-devices/real/             firmware Arduino de los ESP32 (DEV-01, DEV-02)
+devices/real/             agente Python del PC (DEV-02) y firmware Arduino ESP32 de referencia
 devices/datasets/         datasets CSV y script que los construye
 web/                      panel de control (HTML/CSS/JS + MQTT.js)
 analysis/                 backfill, exportación, gráficas/estadísticos y análisis con IA

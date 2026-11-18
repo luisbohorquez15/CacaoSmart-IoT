@@ -12,7 +12,7 @@ if [ ! -f .env ]; then
   echo "==> Generando .env con secretos aleatorios"
   cp .env.example .env
   rnd() { openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24; }
-  for k in MQTT_DEVICE_PASS MQTT_SERVICE_PASS MQTT_OPERATOR_PASS INFLUX_ADMIN_PASS GRAFANA_ADMIN_PASS API_TOKEN NODERED_ADMIN_PASS; do
+  for k in MQTT_DEVICE_PASS MQTT_SERVICE_PASS MQTT_OPERATOR_PASS MQTT_PHONE_PASS PHONE_TOKEN INFLUX_ADMIN_PASS GRAFANA_ADMIN_PASS API_TOKEN NODERED_ADMIN_PASS; do
     sed -i "s|^$k=.*|$k=$(rnd)|" .env
   done
   sed -i "s|^INFLUX_TOKEN=.*|INFLUX_TOKEN=$(openssl rand -hex 32)|" .env

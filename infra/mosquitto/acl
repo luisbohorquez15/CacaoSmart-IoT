@@ -21,3 +21,9 @@ topic read cacaosmart/#
 user operador
 topic read cacaosmart/#
 topic write cacaosmart/+/+/+/command
+
+# Celular (DEV-01, página web de sensores en el iPhone): publica sus datos crudos y escucha sus comandos.
+# Node-RED los normaliza y los re-publica en .../dev-01/telemetry
+user celular
+topic write cacaosmart/santander/lote1/dev-01/raw
+topic read cacaosmart/santander/lote1/dev-01/command

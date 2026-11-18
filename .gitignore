@@ -9,3 +9,4 @@ docs/build/
 !.env.example
 .env.*
 deploy/esp32-listo/
+deploy/portatil-listo/

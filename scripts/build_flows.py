@@ -104,6 +104,21 @@ mqtt_out("mq_out_rest", T3, "publicar en broker", 720, 140)
 add({"id": "http_resp", "type": "http response", "z": T3, "name": "respuesta", "statusCode": "", "headers": {},
      "x": 700, "y": 200, "wires": []})
 
+# ------------------------------------------------------------------ TAB 4: Celular (DEV-01)
+T4 = "tab_phone"
+tab(T4, "4 · Celular real (DEV-01)", "Gateway del celular: Sensor Logger (MQTT o HTTP) -> telemetría estándar + retroceso.")
+comment("c4", T4, "DEV-01: celular real (Sensor Logger) -> gateway -> telemetry", "", 300, 40)
+inject("inj_ph_init", T4, "arranque", "init", "", 4, ["fn_phone"], 120, 100)
+inject("inj_ph_tick", T4, "tick 15 s", "tick", "15", None, ["fn_phone"], 120, 140)
+mqtt_in("mq_in_raw", T4, "datos crudos del celular", "cacaosmart/santander/lote1/dev-01/raw", ["fn_phone"], 150, 190)
+mqtt_in("mq_in_ph_cmd", T4, "comandos DEV-01", "cacaosmart/santander/lote1/dev-01/command", ["fn_phone"], 150, 230)
+add({"id": "http_in_phone", "type": "http in", "z": T4, "name": "POST /api/phone/dev-01", "url": "/api/phone/dev-01",
+     "method": "post", "upload": False, "swaggerDoc": "", "x": 160, "y": 270, "wires": [["fn_phone"]]})
+function("fn_phone", T4, "Gateway celular", js("phone"), 2, [["mq_out_phone"], ["http_resp_phone"]], 430, 180)
+mqtt_out("mq_out_phone", T4, "telemetry / status", 680, 160)
+add({"id": "http_resp_phone", "type": "http response", "z": T4, "name": "respuesta", "statusCode": "", "headers": {},
+     "x": 660, "y": 220, "wires": []})
+
 out = ROOT / "infra" / "nodered" / "flows.json"
 out.write_text(json.dumps(nodes, indent=2, ensure_ascii=False), encoding="utf-8")
 print(f"flows.json: {len(nodes)} nodos -> {out}")

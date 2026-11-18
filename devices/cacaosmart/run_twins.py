@@ -15,7 +15,7 @@ import threading
 import time
 
 from .core import Device, REGION
-from .models import DryerModel, FermenterModel, PumpModel, ShadeModel, Weather
+from .models import DryerModel, FermenterModel, PumpModel, ShadeModel, SueloModel, Weather
 
 WEATHER = Weather()
 TOPIC_WEATHER_NOW = f"cacaosmart/{REGION}/clima/dev-03/telemetry"
@@ -82,14 +82,17 @@ class Polisombra(TwinBase):
 
 # ------------------------------------------------------------------ DEV-06
 class BombaRiego(TwinBase):
-    device_id, zone, name = "dev-06", "lote1", "Bomba y caudalímetro de goteo"
+    device_id, zone, name = "dev-06", "lote1", "Bomba de goteo y humedad de suelo del lote"
     default_interval = 15.0
 
     def __init__(self) -> None:
         super().__init__()
         self.m = PumpModel()
+        self.suelo = SueloModel(humedad=46.0)   # el riego de la bomba humedece el suelo del lote
 
     def step_model(self, dt, now):
+        self.suelo.rele = self.m.encendida and self.m.caudal > 5
+        self.suelo.step(dt, now, WEATHER)
         alarma = self.m.step(dt, now, WEATHER)
         if alarma:
             self.log(alarma)
@@ -97,9 +100,13 @@ class BombaRiego(TwinBase):
             self.publish_status()
 
     def sample(self, now):
-        return self.m.read()
+        s = self.suelo.read()
+        return {**self.m.read(), "humedad_suelo_pct": s["humedad_suelo_pct"], "umbral_pct": self.suelo.umbral}
 
     def handle_command(self, cmd, p):
+        if cmd == "SET_THRESHOLD":
+            self.suelo.umbral = max(10.0, min(60.0, float(p.get("value", 35))))
+            return True, f"umbral de riego {self.suelo.umbral:.0f}%"
         if cmd in ("START", "RIEGO", "RELAY") and str(p.get("state", "ON")).upper() != "OFF":
             if not self.rules_allowed(p):
                 return False, "modo manual: se ignora la regla automática"
@@ -121,7 +128,7 @@ class BombaRiego(TwinBase):
 
     def extra_status(self):
         return {**super().extra_status(), "bomba": 1 if self.m.encendida else 0, "caudal_obj": self.m.caudal_obj,
-                "fuga": 1 if self.m.fuga else 0}
+                "fuga": 1 if self.m.fuga else 0, "umbral_pct": self.suelo.umbral}
 
 
 # ------------------------------------------------------------------ DEV-07

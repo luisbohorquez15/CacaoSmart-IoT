@@ -353,7 +353,7 @@
     "type": "function",
     "z": "tab_rules",
     "name": "Motor de reglas",
-    "func": "// =====================================================================\n//  MOTOR DE REGLAS CacaoSmart IoT  (retroceso automático / lazos de control)\n//  Se ejecuta con CADA mensaje de telemetría. Patrón de \"reconciliación\": compara el estado\n//  deseado con el estado real reportado por el dispositivo (status retenido) y sólo envía\n//  comandos cuando difieren, con tiempos de enfriamiento para evitar oscilaciones.\n//\n//  Lazo 1  Protección solar ......... UV (DEV-03) >= 8 -> polisombra DEV-05 al 80 % + LED DEV-01\n//  Lazo 2  Riego predictivo ......... suelo DEV-02 < umbral -> consulta lluvia DEV-04 -> relé DEV-02 + bomba DEV-06\n//  Lazo 4  Fermentación ............. masa DEV-07 > 50 °C o 48/96 h -> VOLTEO\n//  Lazo 5  Secado ................... marquesina DEV-08 > 45 °C -> extractores + compuertas; lluvia -> cerrar\n//  Alertas Moniliasis, fuga, sobrecalentamiento, desviación vs. curva ideal (DEV-10), anomalía DEV-09\n//  (El Lazo 3, calibración remota, lo ejecuta el operador desde el panel o la API REST.)\n//  Salida 1 -> comandos (MQTT .../command)   Salida 2 -> alertas (MQTT .../alert)\n// =====================================================================\nconst p = msg.payload;\nif (typeof p !== 'object' || p === null) return null;\nconst dev = msg.topic.split('/')[3];\nconst zones = global.get('zones') || {};\nconst latest = global.get('latest') || {};\nconst shadow = global.get('shadow') || {};\nconst st = context.get('st') || {};\nconst now = Date.now();\nconst cmds = [], alerts = [];\nconst iso = () => new Date().toISOString().replace(/\\.\\d+Z$/, 'Z');\n\nfunction cmd(target, body) {\n  const cid = 'r' + now.toString(36) + Math.floor(Math.random() * 1296).toString(36);\n  cmds.push({ topic: `cacaosmart/santander/${zones[target]}/${target}/command`, qos: 1,\n              payload: JSON.stringify({ ...body, src: 'rules', cid, ts: iso() }) });\n}\nfunction alert(target, rule, severity, text, value, cooldownMin) {\n  const k = `al:${rule}:${target}`;\n  if (st[k] && now - st[k] < (cooldownMin || 60) * 60000) return;\n  st[k] = now;\n  alerts.push({ topic: `cacaosmart/santander/${zones[target]}/${target}/alert`, qos: 1,\n                payload: JSON.stringify({ ts: iso(), rule, severity, msg: text, value: Number(value) || 0 }) });\n}\nfunction cool(k, min) {               // true si ya pasó el enfriamiento (y lo reinicia)\n  if (st[k] && now - st[k] < min * 60000) return false;\n  st[k] = now; return true;\n}\nconst data = (d) => (latest[d] && latest[d].data) || {};\nconst fresh = (d, maxMin) => !!latest[d] && now - latest[d].at < (maxMin || 30) * 60000;\nconst sh = (d) => shadow[d] || {};\nconst manual = (d) => sh(d).mode === 'manual';\nconst online = (d) => sh(d).online === 1;\n\nswitch (dev) {\n  // ---------------------------------------------------------- LAZO 1: protección solar\n  case 'dev-03': {\n    const uv = Number(p.uv_index);\n    let deseado = null;\n    if (uv >= 8) deseado = 80;\n    else if (uv <= 5) deseado = 30;                         // histéresis 5..8\n    const actual = sh('dev-05').objetivo_pct;\n    if (deseado !== null && online('dev-05') && !manual('dev-05') && actual !== deseado && cool('shade', 5)) {\n      cmd('dev-05', { cmd: 'SET_SHADE', value: deseado });\n      cmd('dev-01', { cmd: 'LED', state: deseado === 80 ? 'on' : 'off' });\n      if (deseado === 80) alert('dev-03', 'uv_alto', 'warning', `Índice UV ${uv} ≥ 8: polisombra al 80 % y LED de aviso encendido`, uv, 180);\n    }\n    if (Number(p.temp_c) >= 34) alert('dev-03', 'calor_extremo', 'warning', `Temperatura exterior ${p.temp_c} °C: riesgo de estrés térmico en plántulas`, p.temp_c, 240);\n    break;\n  }\n  // ---------------------------------------------------------- LAZO 2: riego predictivo\n  case 'dev-02': {\n    const h = Number(p.humedad_suelo_pct);\n    const umbral = Number(p.umbral_pct || 35);\n    if (h < umbral && !p.valvula && !manual('dev-02') && cool('riego', 45)) {\n      const fc = data('dev-04');\n      const prob = fresh('dev-04', 60) ? Number(fc.prob_lluvia_3h_pct ?? fc.prob_lluvia_pct) : null;\n      const ahorro = sh('dev-04').ahorro_agua !== 0;\n      if (prob !== null && prob > 65 && ahorro) {\n        alert('dev-02', 'riego_inhibido', 'info', `Suelo ${h} % < ${umbral} %, pero lluvia ${prob} % > 65 %: riego bloqueado (ahorro hídrico)`, h, 60);\n      } else {\n        const mins = (prob === null || prob < 30) ? 15 : 8;   // lluvia incierta 30-65 % -> riego reducido\n        cmd('dev-02', { cmd: 'RELAY', state: 'ON', duration_min: mins });\n        cmd('dev-06', { cmd: 'START', duration_min: mins, flow: 30 });\n        alert('dev-02', 'riego_auto', 'info', `Riego automático ${mins} min (suelo ${h} %, prob. lluvia ${prob === null ? 's/d' : prob + ' %'})`, h, 30);\n      }\n    }\n    if (Number(p.bateria_v) > 0 && Number(p.bateria_v) < 3.5) alert('dev-02', 'bateria_baja', 'warning', `Batería del nodo ${p.bateria_v} V`, p.bateria_v, 360);\n    break;\n  }\n  // ---------------------------------------------------------- Moniliasis (microclima)\n  case 'dev-01': {\n    const riesgo = Number(p.hr_pct) > 88 && Number(p.temp_c) > 26;\n    if (riesgo) {\n      st.monil = st.monil || now;\n      const horas = (now - st.monil) / 3600000;\n      if (horas >= 4) alert('dev-01', 'moniliasis', 'critical', `Riesgo de Moniliasis: HR > 88 % y T > 26 °C sostenidos ${horas.toFixed(1)} h`, p.hr_pct, 360);\n    } else st.monil = null;\n    break;\n  }\n  // ---------------------------------------------------------- Bomba (fugas)\n  case 'dev-06': {\n    if (Number(p.emergencia) === 1) alert('dev-06', 'fuga', 'critical', `Parada de emergencia de la bomba: presión ${p.presion_psi} PSI (posible fuga)`, p.presion_psi, 30);\n    else if (Number(p.bomba) === 1 && Number(p.presion_psi) < 15) alert('dev-06', 'presion_baja', 'warning', `Presión de línea baja ${p.presion_psi} PSI`, p.presion_psi, 30);\n    break;\n  }\n  // ---------------------------------------------------------- LAZO 4: fermentación\n  case 'dev-07': {\n    const t = Number(p.temp_masa_c), h = Number(p.horas_fermentacion), v = Number(p.volteos);\n    if (!manual('dev-07')) {\n      if (t > 50 && cool('volteo', 120)) {\n        cmd('dev-07', { cmd: 'VOLTEO' });\n        alert('dev-07', 'fermentacion_alta', 'warning', `Masa a ${t} °C (> 50 °C): volteo automático`, t, 120);\n      } else if ((h >= 48 && v < 1) || (h >= 96 && v < 2)) {\n        if (cool('volteo_prog', 60)) cmd('dev-07', { cmd: 'VOLTEO' });\n      }\n    }\n    if (h > 60 && h < 110 && t < 35) alert('dev-07', 'fermentacion_fria', 'warning', `Fermentación fría (${t} °C en fase acética): revisar masa`, t, 240);\n    break;\n  }\n  // ---------------------------------------------------------- LAZO 5: secado\n  case 'dev-08': {\n    const t = Number(p.temp_interna_c);\n    const lluvia = Number(data('dev-03').lluvia_1h_mm || 0) > 0 ||\n                   (fresh('dev-04', 60) && Number(data('dev-04').prob_lluvia_pct) >= 65);\n    let ext = Number(p.extractores), comp = Number(p.compuertas);\n    let extD = ext, compD = comp;\n    if (t > 45) { extD = 1; compD = 1; }\n    else if (t < 40) extD = 0;\n    if (t <= 45) compD = lluvia ? 0 : 1;\n    if (!manual('dev-08')) {\n      if (extD !== ext && cool('ext', 5)) cmd('dev-08', { cmd: 'EXTRACTORES', state: extD ? 'on' : 'off' });\n      if (compD !== comp && cool('comp', 5)) cmd('dev-08', { cmd: 'COMPUERTAS', state: compD ? 'open' : 'close' });\n    }\n    if (t > 46) alert('dev-08', 'sobrecalentamiento', 'critical', `Marquesina a ${t} °C (> 46 °C): riesgo de acidez y grano arrebatado`, t, 60);\n    const ideal = data('dev-10');\n    if (fresh('dev-10', 30) && ideal.humedad_objetivo_pct !== undefined) {\n      const desv = Number(p.humedad_grano_pct) - Number(ideal.humedad_objetivo_pct);\n      if (desv > 8) alert('dev-08', 'secado_retrasado', 'info', `Grano ${desv.toFixed(1)} pts por encima de la curva ideal (${ideal.profile})`, desv, 360);\n    }\n    if (Number(p.humedad_grano_pct) <= 7) alert('dev-08', 'lote_listo', 'info', `Lote #${p.lote} seco: ${p.humedad_grano_pct} % (≤ 7 %, NTC 1252)`, p.humedad_grano_pct, 720);\n    break;\n  }\n  // ---------------------------------------------------------- Dataset: anomalía inyectada\n  case 'dev-09': {\n    if (Number(p.anomalia) === 1) alert('dev-09', 'anomalia_dataset', 'warning', `Anomalía térmica inyectada en el histórico: ${p.temp_ref_c} °C`, p.temp_ref_c, 30);\n    const actual = data('dev-03').temp_c;\n    if (actual !== undefined && fresh('dev-03', 30) && Math.abs(Number(actual) - Number(p.temp_ref_c)) > 6)\n      alert('dev-09', 'desviacion_historica', 'info', `Temperatura actual ${actual} °C vs ${p.temp_ref_c} °C hace un año`, Number(actual) - Number(p.temp_ref_c), 360);\n    break;\n  }\n}\ncontext.set('st', st);\nif (cmds.length || alerts.length) node.status({ fill: 'yellow', shape: 'dot', text: `${dev}: ${cmds.length} cmd, ${alerts.length} alertas` });\nreturn [cmds, alerts];\n",
+    "func": "// =====================================================================\n//  MOTOR DE REGLAS CacaoSmart IoT  (retroceso automático / lazos de control)\n//  Se ejecuta con CADA mensaje de telemetría. Patrón de \"reconciliación\": compara el estado\n//  deseado con el estado real reportado por el dispositivo (status retenido) y sólo envía\n//  comandos cuando difieren, con tiempos de enfriamiento para evitar oscilaciones.\n//\n//  Lazo 1  Protección solar ......... UV (DEV-03) >= 8 -> polisombra DEV-05 al 80 % + LED de aviso en DEV-02 (portátil)\n//  Lazo 2  Riego predictivo ......... suelo (DEV-06) < umbral -> consulta lluvia DEV-04 -> válvula DEV-02 + bomba DEV-06\n//  Lazo 4  Fermentación ............. masa DEV-07 > 50 °C o 48/96 h -> VOLTEO\n//  Lazo 5  Secado ................... marquesina DEV-08 > 45 °C -> extractores + compuertas; lluvia -> cerrar\n//  Alertas Moniliasis, fuga, sobrecalentamiento, desviación vs. curva ideal (DEV-10), anomalía DEV-09\n//  (El Lazo 3, calibración remota, lo ejecuta el operador desde el panel o la API REST.)\n//  Salida 1 -> comandos (MQTT .../command)   Salida 2 -> alertas (MQTT .../alert)\n// =====================================================================\nconst p = msg.payload;\nif (typeof p !== 'object' || p === null) return null;\nconst dev = msg.topic.split('/')[3];\nconst zones = global.get('zones') || {};\nconst latest = global.get('latest') || {};\nconst shadow = global.get('shadow') || {};\nconst st = context.get('st') || {};\nconst now = Date.now();\nconst cmds = [], alerts = [];\nconst iso = () => new Date().toISOString().replace(/\\.\\d+Z$/, 'Z');\n\nfunction cmd(target, body) {\n  const cid = 'r' + now.toString(36) + Math.floor(Math.random() * 1296).toString(36);\n  cmds.push({ topic: `cacaosmart/santander/${zones[target]}/${target}/command`, qos: 1,\n              payload: JSON.stringify({ ...body, src: 'rules', cid, ts: iso() }) });\n}\nfunction alert(target, rule, severity, text, value, cooldownMin) {\n  const k = `al:${rule}:${target}`;\n  if (st[k] && now - st[k] < (cooldownMin || 60) * 60000) return;\n  st[k] = now;\n  alerts.push({ topic: `cacaosmart/santander/${zones[target]}/${target}/alert`, qos: 1,\n                payload: JSON.stringify({ ts: iso(), rule, severity, msg: text, value: Number(value) || 0 }) });\n}\nfunction cool(k, min) {               // true si ya pasó el enfriamiento (y lo reinicia)\n  if (st[k] && now - st[k] < min * 60000) return false;\n  st[k] = now; return true;\n}\nconst data = (d) => (latest[d] && latest[d].data) || {};\nconst fresh = (d, maxMin) => !!latest[d] && now - latest[d].at < (maxMin || 30) * 60000;\nconst sh = (d) => shadow[d] || {};\nconst manual = (d) => sh(d).mode === 'manual';\nconst online = (d) => sh(d).online === 1;\n\nswitch (dev) {\n  // ---------------------------------------------------------- LAZO 1: protección solar\n  case 'dev-03': {\n    const uv = Number(p.uv_index);\n    let deseado = null;\n    if (uv >= 8) deseado = 80;\n    else if (uv <= 5) deseado = 30;                         // histéresis 5..8\n    const actual = sh('dev-05').objetivo_pct;\n    if (deseado !== null && online('dev-05') && !manual('dev-05') && actual !== deseado && cool('shade', 5)) {\n      cmd('dev-05', { cmd: 'SET_SHADE', value: deseado });\n      cmd('dev-02', { cmd: 'LED', state: deseado === 80 ? 'on' : 'off' });\n      if (deseado === 80) alert('dev-03', 'uv_alto', 'warning', `Índice UV ${uv} ≥ 8: polisombra al 80 % y LED de aviso encendido`, uv, 180);\n    }\n    // Moniliasis: HR > 88 % y T > 26 °C sostenidas 4 h (condiciones medidas por Azure Maps)\n    if (Number(p.hr_pct) > 88 && Number(p.temp_c) > 26) {\n      st.monil = st.monil || now;\n      const horas = (now - st.monil) / 3600000;\n      if (horas >= 4) alert('dev-03', 'moniliasis', 'critical', `Riesgo de Moniliasis: HR > 88 % y T > 26 °C sostenidos ${horas.toFixed(1)} h`, p.hr_pct, 360);\n    } else st.monil = null;\n    if (Number(p.temp_c) >= 34) alert('dev-03', 'calor_extremo', 'warning', `Temperatura exterior ${p.temp_c} °C: riesgo de estrés térmico en plántulas`, p.temp_c, 240);\n    break;\n  }\n  // ---------------------------------------------------------- DEV-02 portátil (estación de borde real)\n  case 'dev-02': {\n    if (Number(p.cargador) === 0 && Number(p.bateria_pct) > 0 && Number(p.bateria_pct) < 20)\n      alert('dev-02', 'bateria_baja', 'warning', `Batería del portátil ${p.bateria_pct} % sin cargador`, p.bateria_pct, 120);\n    if (p.wifi_pct !== undefined && Number(p.wifi_pct) < 25)\n      alert('dev-02', 'wifi_debil', 'info', `Señal Wi-Fi débil en la estación de borde: ${p.wifi_pct} %`, p.wifi_pct, 240);\n    break;\n  }\n  // ---------------------------------------------------------- DEV-01 celular (nodo móvil real)\n  case 'dev-01': {\n    if (Number(p.cargando) === 0 && Number(p.bateria_pct) > 0 && Number(p.bateria_pct) < 15)\n      alert('dev-01', 'bateria_baja', 'warning', `Batería del celular ${p.bateria_pct} %: conéctelo al cargador`, p.bateria_pct, 120);\n    break;\n  }\n  // ---------------------------------------------------------- LAZO 2: riego predictivo + bomba (fugas)\n  case 'dev-06': {\n    const h = Number(p.humedad_suelo_pct);\n    const umbral = Number(p.umbral_pct || 35);\n    if (!isNaN(h) && h < umbral && !Number(p.bomba) && !manual('dev-06') && cool('riego', 45)) {\n      const fc = data('dev-04');\n      const prob = fresh('dev-04', 60) ? Number(fc.prob_lluvia_3h_pct ?? fc.prob_lluvia_pct) : null;\n      const ahorro = sh('dev-04').ahorro_agua !== 0;\n      if (prob !== null && prob > 65 && ahorro) {\n        alert('dev-06', 'riego_inhibido', 'info', `Suelo ${h} % < ${umbral} %, pero lluvia ${prob} % > 65 %: riego bloqueado (ahorro hídrico)`, h, 60);\n      } else {\n        const mins = (prob === null || prob < 30) ? 15 : 8;   // lluvia incierta 30-65 % -> riego reducido\n        cmd('dev-02', { cmd: 'RELAY', state: 'ON', duration_min: mins });   // válvula física en la estación de borde\n        cmd('dev-06', { cmd: 'START', duration_min: mins, flow: 30 });\n        alert('dev-06', 'riego_auto', 'info', `Riego automático ${mins} min (suelo ${h} %, prob. lluvia ${prob === null ? 's/d' : prob + ' %'})`, h, 30);\n      }\n    }\n    if (Number(p.emergencia) === 1) alert('dev-06', 'fuga', 'critical', `Parada de emergencia de la bomba: presión ${p.presion_psi} PSI (posible fuga)`, p.presion_psi, 30);\n    else if (Number(p.bomba) === 1 && Number(p.presion_psi) < 15) alert('dev-06', 'presion_baja', 'warning', `Presión de línea baja ${p.presion_psi} PSI`, p.presion_psi, 30);\n    break;\n  }\n  // ---------------------------------------------------------- LAZO 4: fermentación\n  case 'dev-07': {\n    const t = Number(p.temp_masa_c), h = Number(p.horas_fermentacion), v = Number(p.volteos);\n    if (!manual('dev-07')) {\n      if (t > 50 && cool('volteo', 120)) {\n        cmd('dev-07', { cmd: 'VOLTEO' });\n        alert('dev-07', 'fermentacion_alta', 'warning', `Masa a ${t} °C (> 50 °C): volteo automático`, t, 120);\n      } else if ((h >= 48 && v < 1) || (h >= 96 && v < 2)) {\n        if (cool('volteo_prog', 60)) cmd('dev-07', { cmd: 'VOLTEO' });\n      }\n    }\n    if (h > 60 && h < 110 && t < 35) alert('dev-07', 'fermentacion_fria', 'warning', `Fermentación fría (${t} °C en fase acética): revisar masa`, t, 240);\n    break;\n  }\n  // ---------------------------------------------------------- LAZO 5: secado\n  case 'dev-08': {\n    const t = Number(p.temp_interna_c);\n    const lluvia = Number(data('dev-03').lluvia_1h_mm || 0) > 0 ||\n                   (fresh('dev-04', 60) && Number(data('dev-04').prob_lluvia_pct) >= 65);\n    let ext = Number(p.extractores), comp = Number(p.compuertas);\n    let extD = ext, compD = comp;\n    if (t > 45) { extD = 1; compD = 1; }\n    else if (t < 40) extD = 0;\n    if (t <= 45) compD = lluvia ? 0 : 1;\n    if (!manual('dev-08')) {\n      if (extD !== ext && cool('ext', 5)) cmd('dev-08', { cmd: 'EXTRACTORES', state: extD ? 'on' : 'off' });\n      if (compD !== comp && cool('comp', 5)) cmd('dev-08', { cmd: 'COMPUERTAS', state: compD ? 'open' : 'close' });\n    }\n    if (t > 46) alert('dev-08', 'sobrecalentamiento', 'critical', `Marquesina a ${t} °C (> 46 °C): riesgo de acidez y grano arrebatado`, t, 60);\n    const ideal = data('dev-10');\n    if (fresh('dev-10', 30) && ideal.humedad_objetivo_pct !== undefined) {\n      const desv = Number(p.humedad_grano_pct) - Number(ideal.humedad_objetivo_pct);\n      if (desv > 8) alert('dev-08', 'secado_retrasado', 'info', `Grano ${desv.toFixed(1)} pts por encima de la curva ideal (${ideal.profile})`, desv, 360);\n    }\n    if (Number(p.humedad_grano_pct) <= 7) alert('dev-08', 'lote_listo', 'info', `Lote #${p.lote} seco: ${p.humedad_grano_pct} % (≤ 7 %, NTC 1252)`, p.humedad_grano_pct, 720);\n    break;\n  }\n  // ---------------------------------------------------------- Dataset: anomalía inyectada\n  case 'dev-09': {\n    if (Number(p.anomalia) === 1) alert('dev-09', 'anomalia_dataset', 'warning', `Anomalía térmica inyectada en el histórico: ${p.temp_ref_c} °C`, p.temp_ref_c, 30);\n    const actual = data('dev-03').temp_c;\n    if (actual !== undefined && fresh('dev-03', 30) && Math.abs(Number(actual) - Number(p.temp_ref_c)) > 6)\n      alert('dev-09', 'desviacion_historica', 'info', `Temperatura actual ${actual} °C vs ${p.temp_ref_c} °C hace un año`, Number(actual) - Number(p.temp_ref_c), 360);\n    break;\n  }\n}\ncontext.set('st', st);\nif (cmds.length || alerts.length) node.status({ fill: 'yellow', shape: 'dot', text: `${dev}: ${cmds.length} cmd, ${alerts.length} alertas` });\nreturn [cmds, alerts];\n",
     "outputs": 2,
     "timeout": 0,
     "noerr": 0,
@@ -557,6 +557,182 @@
     "headers": {},
     "x": 700,
     "y": 200,
+    "wires": []
+  },
+  {
+    "id": "tab_phone",
+    "type": "tab",
+    "label": "4 · Celular real (DEV-01)",
+    "disabled": false,
+    "info": "Gateway del celular: Sensor Logger (MQTT o HTTP) -> telemetría estándar + retroceso."
+  },
+  {
+    "id": "c4",
+    "type": "comment",
+    "z": "tab_phone",
+    "name": "DEV-01: celular real (Sensor Logger) -> gateway -> telemetry",
+    "info": "",
+    "x": 300,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "inj_ph_init",
+    "type": "inject",
+    "z": "tab_phone",
+    "name": "arranque",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 4,
+    "topic": "init",
+    "x": 120,
+    "y": 100,
+    "wires": [
+      [
+        "fn_phone"
+      ]
+    ]
+  },
+  {
+    "id": "inj_ph_tick",
+    "type": "inject",
+    "z": "tab_phone",
+    "name": "tick 15 s",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "15",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "tick",
+    "x": 120,
+    "y": 140,
+    "wires": [
+      [
+        "fn_phone"
+      ]
+    ]
+  },
+  {
+    "id": "mq_in_raw",
+    "type": "mqtt in",
+    "z": "tab_phone",
+    "name": "datos crudos del celular",
+    "topic": "cacaosmart/santander/lote1/dev-01/raw",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "mqtt_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 150,
+    "y": 190,
+    "wires": [
+      [
+        "fn_phone"
+      ]
+    ]
+  },
+  {
+    "id": "mq_in_ph_cmd",
+    "type": "mqtt in",
+    "z": "tab_phone",
+    "name": "comandos DEV-01",
+    "topic": "cacaosmart/santander/lote1/dev-01/command",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "mqtt_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 150,
+    "y": 230,
+    "wires": [
+      [
+        "fn_phone"
+      ]
+    ]
+  },
+  {
+    "id": "http_in_phone",
+    "type": "http in",
+    "z": "tab_phone",
+    "name": "POST /api/phone/dev-01",
+    "url": "/api/phone/dev-01",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 270,
+    "wires": [
+      [
+        "fn_phone"
+      ]
+    ]
+  },
+  {
+    "id": "fn_phone",
+    "type": "function",
+    "z": "tab_phone",
+    "name": "Gateway celular",
+    "func": "// =====================================================================\n//  DEV-01 · Nodo móvil de campo (iPhone real: página web de sensores en Safari, o apps compatibles)\n//  El celular envía sus sensores REALES (luz, presión, micrófono, acelerómetro, batería) por:\n//    · MQTT  -> cacaosmart/santander/lote1/dev-01/raw   (usuario \"celular\", sólo puede escribir ahí)\n//    · HTTP  -> POST /api/phone/dev-01?token=...         (alternativa)\n//  Esta función actúa como GATEWAY / \"device shadow\": normaliza el formato de Sensor Logger,\n//  promedia el lote, aplica calibración y publica la telemetría estándar con el intervalo\n//  configurado. El retroceso (POWER, SET_INTERVAL, CALIBRATE…) se ejecuta en este gateway,\n//  porque la app del celular no puede recibir comandos.\n//  Salida 1 -> MQTT (telemetry / status)    Salida 2 -> respuesta HTTP\n// =====================================================================\nconst T = (k) => `cacaosmart/santander/lote1/dev-01/${k}`;\nconst nowIso = () => new Date().toISOString().replace(/\\.\\d+Z$/, 'Z');\nconst now = Date.now();\nconst st = flow.get('dev01') || { power: 'on', interval_s: 30, offsets: {}, mode: 'auto', seq: 0, lastData: 0, lastPub: 0, online: 0,\n                                   buf: { luz: [], pres: [], db: [], acc: [], brillo: [], bat: null, carga: null } };\nconst out = [];\nlet http = null;\n\nfunction status() {\n  const s = { online: st.online, device: 'dev-01', name: 'Nodo móvil de campo (iPhone · web de sensores)', type: 'real', power: st.power,\n              interval_s: st.interval_s, mode: st.mode, offsets: st.offsets, ts: nowIso(), gateway: 'node-red', app: 'sensor.html (Safari, MQTT sobre WSS)' };\n  if (st.last_cmd) s.last_cmd = st.last_cmd;\n  return { topic: T('status'), payload: JSON.stringify(s), qos: 1, retain: true };\n}\nconst mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;\nconst r = (x, d) => Math.round(x * 10 ** d) / 10 ** d;\nconst off = (k) => (k in st.offsets ? st.offsets[k] : (st.offsets[k.split('_')[0]] || 0));\n\n// ------------------------------------------------------------------ 1) datos del celular\nfunction ingest(body) {\n  const items = Array.isArray(body && body.payload) ? body.payload : [];\n  for (const it of items) {\n    const name = String(it.name || '').toLowerCase();\n    const v = it.values || {};\n    const num = Object.values(v).find(x => typeof x === 'number');\n    if (name.includes('light') || name.includes('lux') || name.includes('illuminance')) {\n      const lux = v.lux ?? v.illuminance ?? v.light ?? num;\n      if (typeof lux === 'number') st.buf.luz.push(lux);\n    } else if (name === 'barometer' || name.includes('pressure')) {\n      let p = v.pressure ?? num;\n      if (typeof p === 'number') { if (p < 200) p *= 10; st.buf.pres.push(p); }       // kPa -> hPa (iOS)\n      if (typeof v.relativeAltitude === 'number') (st.buf.alt = st.buf.alt || []).push(v.relativeAltitude);\n    } else if (name === 'microphone') {\n      if (typeof v.dBFS === 'number') st.buf.db.push(v.dBFS);\n    } else if (name === 'accelerometer') {\n      if ([v.x, v.y, v.z].every(n => typeof n === 'number')) st.buf.acc.push(Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z));\n    } else if (name === 'brightness') {                                            // brillo automático de pantalla (iOS), 0-1\n      if (typeof v.brightness === 'number') st.buf.brillo.push(v.brightness <= 1 ? v.brightness * 100 : v.brightness);\n    } else if (name === 'battery') {\n      if (typeof v.batteryLevel === 'number') st.buf.bat = v.batteryLevel <= 1 ? v.batteryLevel * 100 : v.batteryLevel;\n      if (v.batteryState) st.buf.carga = ['charging', 'full'].includes(v.batteryState) ? 1 : 0;\n    }\n  }\n  st.lastData = now;\n  if (!st.online) { st.online = 1; out.push(status()); }\n  return items.length;\n}\n\n// ------------------------------------------------------------------ 2) publicación periódica\nfunction flush(force) {\n  if (st.power !== 'on' || (!force && now - st.lastPub < st.interval_s * 1000)) return;\n  const b = st.buf, tele = { ts: nowIso(), type: 'real', seq: ++st.seq };\n  if (b.luz.length) tele.luz_lux = r(mean(b.luz) + off('luz_lux'), 1);\n  if (b.pres.length) tele.presion_hpa = r(mean(b.pres) + off('presion_hpa'), 2);\n  if (b.db.length) tele.ruido_dbfs = r(mean(b.db) + off('ruido_dbfs'), 1);\n  if (b.acc.length > 1) {                                                          // movimiento = variabilidad de |a|\n    const m = mean(b.acc);\n    tele.movimiento = r(Math.sqrt(mean(b.acc.map(a => (a - m) ** 2))), 3);\n  }\n  if ((b.alt || []).length) tele.altura_rel_m = r(mean(b.alt) + off('altura_rel_m'), 3);\n  if ((b.brillo || []).length) tele.brillo_pct = r(mean(b.brillo), 1);\n  if (b.bat !== null) tele.bateria_pct = r(b.bat, 1);\n  if (b.carga !== null) tele.cargando = b.carga;\n  st.buf = { luz: [], pres: [], db: [], acc: [], brillo: [], bat: b.bat, carga: b.carga };\n  if (Object.keys(tele).length > 3) { out.push({ topic: T('telemetry'), payload: JSON.stringify(tele), qos: 1 }); st.lastPub = now; }\n}\n\n// ------------------------------------------------------------------ 3) retroceso\nfunction command(p) {\n  const cmd = String(p.cmd || '').toUpperCase();\n  let ok = true, txt = '';\n  switch (cmd) {\n    case 'POWER': st.power = String(p.state || 'on').toLowerCase() === 'off' ? 'off' : 'on'; txt = `telemetría ${st.power === 'on' ? 'encendida' : 'apagada'}`; break;\n    case 'SET_INTERVAL': st.interval_s = Math.max(5, Math.min(3600, Number(p.value) || st.interval_s)); txt = `intervalo = ${st.interval_s}s`; break;\n    case 'CALIBRATE': {\n      const ch = [];\n      for (const [k, v] of Object.entries(p.offsets || {})) { st.offsets[k] = Number(v); ch.push(k); }\n      for (const [k, v] of Object.entries(p)) if (k.endsWith('_offset')) { st.offsets[k.slice(0, -7)] = Number(v); ch.push(k.slice(0, -7)); }\n      if (p.interval_sec) { st.interval_s = Math.max(5, Math.min(3600, Number(p.interval_sec))); ch.push('intervalo'); }\n      txt = ch.length ? 'calibrado: ' + ch.join(', ') : 'sin cambios'; break;\n    }\n    case 'RESET_CALIBRATION': st.offsets = {}; txt = 'offsets borrados'; break;\n    case 'SET_MODE': st.mode = p.value === 'manual' ? 'manual' : 'auto'; txt = `modo ${st.mode}`; break;\n    case 'LED':\n    case 'ALARMA': txt = `alarma en el iPhone ${String(p.state || 'on').toLowerCase() === 'off' ? 'desactivada' : 'ACTIVADA'} (pantalla naranja + sonido)`; break;\n    case 'MEASURE': txt = `medición del iPhone ${String(p.state || 'start')} (ejecutado por el gateway del PC)`; break;\n    case 'CLEAR': txt = 'buffers del iPhone limpiados (gateway del PC)'; break;\n    case 'PING': txt = st.online ? 'pong (celular transmitiendo)' : 'pong (celular sin datos)'; break;\n    default: ok = false; txt = `comando desconocido: ${cmd}`;\n  }\n  st.last_cmd = { cid: p.cid || '', cmd, src: p.src || 'desconocido', ok: ok ? 1 : 0, msg: txt, at: nowIso() };\n  out.push(status());\n}\n\n// ------------------------------------------------------------------ enrutamiento\nif (msg.req) {                                                                     // HTTP\n  const token = msg.req.query.token || (msg.req.headers.authorization || '').replace('Bearer ', '');\n  if (token !== env.get('PHONE_TOKEN')) {\n    http = { ...msg, statusCode: 499, payload: 'Token inválido: revise la URL de envío' };   // 499: la app muestra el texto\n  } else {\n    const n = ingest(msg.payload);\n    flush(false);\n    http = { ...msg, statusCode: 200, payload: { ok: true, lecturas: n } };\n  }\n} else if (msg.topic === 'tick') {\n  if (st.online && now - st.lastData > 120000) { st.online = 0; out.push(status()); }        // sin datos 2 min = offline\n  flush(false);\n} else if (msg.topic && msg.topic.endsWith('/raw')) {\n  ingest(typeof msg.payload === 'object' ? msg.payload : {});\n  flush(false);\n} else if (msg.topic && msg.topic.endsWith('/command')) {\n  command(typeof msg.payload === 'object' ? msg.payload : {});\n} else if (msg.topic === 'init') {\n  out.push(status());\n}\nflow.set('dev01', st);\nnode.status({ fill: st.online ? 'green' : 'grey', shape: 'dot', text: `celular ${st.online ? 'transmitiendo' : 'sin datos'} · #${st.seq}` });\nreturn [out, http];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 180,
+    "wires": [
+      [
+        "mq_out_phone"
+      ],
+      [
+        "http_resp_phone"
+      ]
+    ]
+  },
+  {
+    "id": "mq_out_phone",
+    "type": "mqtt out",
+    "z": "tab_phone",
+    "name": "telemetry / status",
+    "topic": "",
+    "qos": "",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt_broker",
+    "x": 680,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "http_resp_phone",
+    "type": "http response",
+    "z": "tab_phone",
+    "name": "respuesta",
+    "statusCode": "",
+    "headers": {},
+    "x": 660,
+    "y": 220,
     "wires": []
   }
 ]

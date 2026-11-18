@@ -21,9 +21,9 @@
   <rect x="36" y="128" width="268" height="150" rx="12" class="box"/>
   <rect x="36" y="128" width="6" height="150" rx="3" fill="#4C9A2A"/>
   <text x="52" y="150" class="n">Dispositivos reales</text>
-  <text x="52" y="172" class="t">DEV-01 Microclima lote</text><text x="52" y="188" class="s">ESP32 + DHT22 + LDR + LED</text>
-  <text x="52" y="210" class="t">DEV-02 Suelo y riego</text><text x="52" y="226" class="s">ESP32 + capacitivo + relé + batería</text>
-  <text x="52" y="256" class="lbl">MQTT/TCP 1883 · QoS 1 · LWT · Wi-Fi</text>
+  <text x="52" y="172" class="t">DEV-01 Nodo móvil (iPhone)</text><text x="52" y="188" class="s">micrófono + acelerómetro + alarma</text>
+  <text x="52" y="210" class="t">DEV-02 Estación de borde (PC)</text><text x="52" y="226" class="s">Python · CPU/RAM + válvula + LED</text>
+  <text x="52" y="256" class="lbl">MQTT/WSS 443 (iPhone) · MQTT/TCP 1883 (PC) · QoS 1</text>
 
   <rect x="36" y="292" width="268" height="176" rx="12" class="box"/>
   <rect x="36" y="292" width="6" height="176" rx="3" fill="#8E4FC2"/>
@@ -122,7 +122,7 @@
   <text x="406" y="674" class="t">build_report.py → informe HTML → PDF</text>
   <text x="406" y="704" class="s">backfill.py: simulación de validación de 6 días con los mismos modelos y el clima real (Open-Meteo)</text>
   <text x="406" y="722" class="s">build_flows.py / build_dashboards.py: Node-RED y Grafana como código (provisioning)</text>
-  <text x="406" y="760" class="lbl">GitHub: código, firmware ESP32, infraestructura (docker-compose), dashboards y documento</text>
+  <text x="406" y="760" class="lbl">GitHub: código, agentes iPhone/PC, infraestructura (docker-compose), dashboards y documento</text>
 
   <!-- ===================== USUARIOS ===================== -->
   <text x="1232" y="114" class="h">USUARIOS</text>

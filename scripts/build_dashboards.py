@@ -183,7 +183,7 @@ HEADER = """<div style="display:flex;align-items:center;gap:18px;padding:6px 4px
 
 # ======================================================================== 01 Visión general
 d = Dash("cacao-general", "CacaoSmart · 01 Visión general", "Estado global de los 10 dispositivos, KPIs, alertas y retroceso.", ["general"])
-d.text(HEADER.format(title="Visión general", sub="San Vicente de Chucurí, Santander · 10 dispositivos (2 reales · 2 API · 4 gemelos · 2 datasets) · MQTT + HTTPS/REST"), h=3)
+d.text(HEADER.format(title="Visión general", sub="San Vicente de Chucurí, Santander · 10 dispositivos (2 reales: iPhone y PC · 2 API · 4 gemelos · 2 datasets) · MQTT + HTTPS/REST"), h=3)
 d.row("Estado de conexión (LWT / device shadow)")
 online_q = ('from(bucket: "cacaosmart")\n  |> range(start: -30d)   // estado ACTUAL: no depende del selector de tiempo\n'
             '  |> filter(fn: (r) => r._measurement == "status" and r._field == "online")\n'
@@ -202,7 +202,7 @@ d.row("Indicadores clave (último valor · variación en el periodo)")
 d.stat("🌡️ T. exterior (Azure)", "dev-03", "temp_c", "celsius", [{"color": C["hr"], "value": None}, {"color": C["green"], "value": 21}, {"color": C["temp"], "value": 30}, {"color": C["red"], "value": 34}])
 d.stat("☀️ Índice UV", "dev-03", "uv_index", "none", [{"color": C["green"], "value": None}, {"color": C["luz"], "value": 3}, {"color": C["temp"], "value": 6}, {"color": C["red"], "value": 8}], decimals=0)
 d.stat("🌧️ Prob. lluvia 1 h", "dev-04", "prob_lluvia_pct", "percent", [{"color": C["green"], "value": None}, {"color": C["luz"], "value": 30}, {"color": C["prob"], "value": 65}], decimals=0)
-d.stat("🌱 Humedad suelo", "dev-02", "humedad_suelo_pct", "percent", [{"color": C["red"], "value": None}, {"color": C["green"], "value": 35}, {"color": C["hr"], "value": 60}])
+d.stat("🌱 Humedad suelo", "dev-06", "humedad_suelo_pct", "percent", [{"color": C["red"], "value": None}, {"color": C["green"], "value": 35}, {"color": C["hr"], "value": 60}])
 d.stat("🔥 Masa fermentación", "dev-07", "temp_masa_c", "celsius", [{"color": C["hr"], "value": None}, {"color": C["luz"], "value": 35}, {"color": C["green"], "value": 45}, {"color": C["red"], "value": 50}])
 d.stat("🫘 Humedad grano", "dev-08", "humedad_grano_pct", "percent", [{"color": C["green"], "value": None}, {"color": C["gold"], "value": 7.01}, {"color": C["cacao"], "value": 25}])
 d.row("Tendencias del periodo")
@@ -239,7 +239,7 @@ cmd_ov = [{"matcher": {"id": "byName", "options": "src"}, "properties": [
 d.table("↩️ Bitácora de retroceso (comandos enviados)", events_query("command", ["cmd", "src"]), w=10, h=9, overrides=cmd_ov)
 d.row("Procesamiento: estadísticos del periodo seleccionado (ajuste con el selector de tiempo)")
 d.table("📊 Promedio · Máximo · Mínimo por variable", stats_query([
-    ("dev-01", "temp_c"), ("dev-01", "hr_pct"), ("dev-01", "luz_lux"), ("dev-02", "humedad_suelo_pct"), ("dev-02", "bateria_v"),
+    ("dev-01", "ruido_dbfs"), ("dev-01", "movimiento"), ("dev-02", "bateria_pct"), ("dev-02", "wifi_pct"), ("dev-02", "cpu_pct"), ("dev-06", "humedad_suelo_pct"),
     ("dev-03", "temp_c"), ("dev-03", "hr_pct"), ("dev-03", "uv_index"), ("dev-03", "viento_kmh"),
     ("dev-04", "prob_lluvia_pct"), ("dev-04", "nubosidad_pct"), ("dev-05", "cierre_pct"), ("dev-05", "rad_filtrada_wm2"),
     ("dev-06", "caudal_lpm"), ("dev-06", "presion_psi"), ("dev-07", "temp_masa_c"), ("dev-07", "ph_mucilago"),
@@ -252,31 +252,28 @@ d.table("📊 Promedio · Máximo · Mínimo por variable", stats_query([
 d.save("01-vision-general.json")
 
 # ======================================================================== 02 Lote de cultivo
-d = Dash("cacao-lote", "CacaoSmart · 02 Lote de cultivo", "Microclima, suelo, riego y sombra (DEV-01, 02, 05, 06).", ["cultivo"])
-d.text(HEADER.format(title="Lote 1 · Cultivo", sub="Nodos ESP32 reales (DEV-01, DEV-02) · Gemelos de polisombra (DEV-05) y bomba de goteo (DEV-06)"), h=3)
-d.row("DEV-01 · Nodo microclima (ESP32 + DHT22 + LDR) · MQTT")
-d.ts("Temperatura y humedad relativa del dosel", [
-    ("dev-01", "temp_c", "Temperatura", C["temp"]), ("dev-01", "hr_pct", "Humedad relativa", C["hr"], {"unit": "percent", "right": True})],
-    unit="celsius", w=16, desc="Riesgo de Moniliasis: HR > 88 % y T > 26 °C sostenidos 4 h.",
-    thresholds=[{"color": "transparent", "value": None}, {"color": "#E5484D22", "value": 26}])
-d.gauge("HR actual (umbral Moniliasis 88 %)", "dev-01", "hr_pct", "percent", [{"color": C["luz"], "value": None}, {"color": C["green"], "value": 70}, {"color": C["red"], "value": 88}], 40, 100, w=8, h=8)
-d.ts("Luminosidad bajo el dosel", [("dev-01", "luz_lux", "Luz (lux)", C["luz"])], unit="lux", w=16, h=7)
-d.state("LED de aviso UV (actuador, Lazo 1)", [("dev-01", "led", "LED DEV-01")], w=8, h=7)
-d.row("DEV-02 · Nodo suelo y riego (ESP32 + sensor capacitivo + relé) · MQTT")
-d.ts("Humedad volumétrica del suelo vs umbral de riego", [
-    ("dev-02", "humedad_suelo_pct", "Humedad suelo", C["suelo"]), ("dev-02", "umbral_pct", "Umbral de riego", C["red"], {"dash": True}),
-    ("dev-09", "humedad_suelo_ref_pct", "Suelo ref. 2025 (DEV-09)", C["grey"], {"dash": True})],
-    unit="percent", w=16, desc="Lazo 2: si la humedad cae bajo el umbral se consulta la lluvia de DEV-04 antes de regar.")
-d.ts("Batería del nodo", [("dev-02", "bateria_v", "Batería 18650", C["gold"])], unit="volt", w=8, h=8,
-     thresholds=[{"color": "#E5484D33", "value": None}, {"color": "transparent", "value": 3.5}])
-d.state("Electroválvula (relé) y bomba", [("dev-02", "valvula", "Válvula DEV-02"), ("dev-06", "bomba", "Bomba DEV-06")], w=24, h=5)
+d = Dash("cacao-lote", "CacaoSmart · 02 Lote de cultivo", "Celular y portátil reales, suelo, riego y sombra (DEV-01, 02, 05, 06).", ["cultivo"])
+d.text(HEADER.format(title="Lote 1 · Cultivo", sub="Dispositivos reales: iPhone (DEV-01) y PC (DEV-02) · Gemelos de polisombra (DEV-05) y bomba + suelo (DEV-06)"), h=3)
+d.row("DEV-01 · Nodo móvil de campo (iPhone real · página web de sensores · MQTT sobre WSS)")
+d.ts("Ruido ambiente (micrófono del iPhone)", [("dev-01", "ruido_dbfs", "Ruido (dBFS)", C["uv"])], unit="dB", w=24, h=7)
+d.ts("Movimiento (acelerómetro lineal del iPhone)", [("dev-01", "movimiento", "Movimiento (m/s²)", C["flow"])], w=24, h=7)
+
+d.row("DEV-02 · Estación de borde del lote (PC real · python.py) · MQTT")
+d.ts("Batería y señal Wi-Fi de la estación", [
+    ("dev-02", "bateria_pct", "Batería", C["gold"]), ("dev-02", "wifi_pct", "Señal Wi-Fi", C["hr"])], unit="percent", w=16, minv=0, maxv=100)
+d.ts("Carga del procesador y memoria", [("dev-02", "cpu_pct", "CPU", C["temp"]), ("dev-02", "ram_pct", "RAM", C["uv"])], unit="percent", w=8, minv=0, maxv=100)
+d.state("Actuadores reales: válvula de riego y LED de aviso UV (Lazos 1 y 2)", [("dev-02", "valvula", "Válvula DEV-02"), ("dev-02", "led", "LED aviso UV"), ("dev-06", "bomba", "Bomba DEV-06")], w=24, h=6)
 d.row("DEV-05 · Gemelo digital polisombra motorizada")
 d.ts("Radiación exterior vs filtrada por la malla", [
     ("dev-05", "rad_ext_wm2", "Radiación exterior", C["rad"]), ("dev-05", "rad_filtrada_wm2", "Radiación filtrada", C["filt"]),
     ("dev-05", "cierre_pct", "Cierre malla", C["cacao"], {"unit": "percent", "right": True, "step": True})], unit="watt", w=16)
 d.ts("Corriente del motor e índice UV", [
     ("dev-05", "corriente_a", "Corriente motor", C["pres"], {"unit": "amp"}), ("dev-05", "uv_index", "Índice UV", C["uv"], {"right": True, "unit": "none"})], w=8)
-d.row("DEV-06 · Gemelo digital bomba y caudalímetro de goteo")
+d.row("DEV-06 · Gemelo digital bomba de goteo y suelo del lote")
+d.ts("Humedad volumétrica del suelo vs umbral de riego", [
+    ("dev-06", "humedad_suelo_pct", "Humedad suelo", C["suelo"]), ("dev-06", "umbral_pct", "Umbral de riego", C["red"], {"dash": True}),
+    ("dev-09", "humedad_suelo_ref_pct", "Suelo ref. 2025 (DEV-09)", C["grey"], {"dash": True})],
+    unit="percent", w=24, desc="Lazo 2: si la humedad cae bajo el umbral se consulta la lluvia de DEV-04 y se abre la válvula del portátil + bomba.")
 d.ts("Caudal y presión de línea", [
     ("dev-06", "caudal_lpm", "Caudal (L/min)", C["flow"]), ("dev-06", "presion_psi", "Presión (PSI)", C["pres"], {"right": True, "unit": "pressurepsi"})],
     unit="short", w=16, desc="Interlock local: presión < 12 PSI con la bomba encendida = fuga -> parada de emergencia.")
@@ -358,7 +355,7 @@ def fq(dev, field, window="5m", fn="mean"):
 
 
 rules = {"apiVersion": 1, "groups": [{"orgId": 1, "name": "cacaosmart-reglas", "folder": "CacaoSmart", "interval": "1m", "rules": [
-    rule("al-monilia", "Riesgo de Moniliasis (HR > 88 % por 4 h)", fq("dev-01", "hr_pct", "4h", "min"), "gt", 88, "5m",
+    rule("al-monilia", "Riesgo de Moniliasis (HR > 88 % por 4 h)", fq("dev-03", "hr_pct", "4h", "min"), "gt", 88, "5m",
          "La humedad relativa del dosel lleva 4 h por encima de 88 %: condiciones favorables para Moniliophthora roreri.", "critical"),
     rule("al-marquesina", "Sobrecalentamiento en marquesina (> 46 °C)", fq("dev-08", "temp_interna_c"), "gt", 46, "2m",
          "Temperatura interna de secado > 46 °C: riesgo de acidez y grano arrebatado.", "critical"),
@@ -367,7 +364,7 @@ rules = {"apiVersion": 1, "groups": [{"orgId": 1, "name": "cacaosmart-reglas", "
     rule("al-presion", "Presión de riego baja (< 12 PSI con bomba)", fq("dev-06", "presion_psi", "2m", "min") +
          ' |> map(fn: (r) => ({r with _value: if r._value < 12.0 then r._value else 99.0}))', "lt", 12, "1m",
          "Posible fuga en la línea de goteo.", "critical"),
-    rule("al-suelo", "Suelo seco (< 30 %)", fq("dev-02", "humedad_suelo_pct", "15m"), "lt", 30, "10m",
+    rule("al-suelo", "Suelo seco (< 30 %)", fq("dev-06", "humedad_suelo_pct", "15m"), "lt", 30, "10m",
          "La humedad del suelo está por debajo de 30 % por más de 10 min.", "warning"),
 ]}]}
 alert_dir = ROOT / "infra" / "grafana" / "provisioning" / "alerting"

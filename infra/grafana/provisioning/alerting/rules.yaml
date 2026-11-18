@@ -31,7 +31,7 @@
        "datasourceUid": "influx-cacao",
        "model": {
         "refId": "A",
-        "query": "from(bucket: \"cacaosmart\") |> range(start: -4h)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-01\" and r._field == \"hr_pct\")\n  |> min()",
+        "query": "from(bucket: \"cacaosmart\") |> range(start: -4h)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-03\" and r._field == \"hr_pct\")\n  |> min()",
         "intervalMs": 60000,
         "maxDataPoints": 43200
        }
@@ -283,7 +283,7 @@
        "datasourceUid": "influx-cacao",
        "model": {
         "refId": "A",
-        "query": "from(bucket: \"cacaosmart\") |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-02\" and r._field == \"humedad_suelo_pct\")\n  |> mean()",
+        "query": "from(bucket: \"cacaosmart\") |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r.device == \"dev-06\" and r._field == \"humedad_suelo_pct\")\n  |> mean()",
         "intervalMs": 60000,
         "maxDataPoints": 43200
        }

@@ -74,12 +74,12 @@ def stats_rows(dev):
 
 
 DEVICES = [
-    ("DEV-01", "Nodo microclima lote 1", "Real", "ESP32 + DHT22 + LDR + LED",
-     "Temperatura (°C)<br>Humedad relativa (%)<br>Luminosidad (lux)<br>RSSI Wi-Fi (dBm)", "21 – 30 °C<br>70 – 85 %<br>10k – 40k lux<br>−80 – −40 dBm",
-     "MQTT/TCP 1883, QoS 1, LWT", "CALIBRATE (offset T/HR, muestreo 5–60 s), LED, POWER, REBOOT"),
-    ("DEV-02", "Nodo suelo y actuación", "Real", "ESP32 + sensor capacitivo v1.2 + relé + 18650",
-     "Humedad volumétrica suelo (%)<br>Electroválvula (0/1)<br>Batería (V)", "35 – 60 %<br>0 / 1<br>3,3 – 4,2 V",
-     "MQTT/TCP 1883, QoS 1, LWT", "RELAY ON/OFF + duración, SET_THRESHOLD, SET_MODE, CALIBRATE seco/húmedo"),
+    ("DEV-01", "Nodo móvil de campo", "Real", "iPhone (sensores del teléfono) + página web <code>sensor.html</code> en Safari",
+     "Nivel de ruido del micrófono (dBFS)<br>Movimiento / vibración (m/s²)<br>Alarma visual y sonora (actuador)", "−70 – −30 dBFS<br>0 – 0,6 m/s²<br>0 / 1",
+     "MQTT sobre WebSocket seguro (WSS 443), QoS 1; gateway Node-RED", "ALARMA on/off (pantalla naranja + sonido), POWER/MEASURE, SET_INTERVAL, CALIBRATE (offset de ruido), RESET_CALIBRATION"),
+    ("DEV-02", "Estación de borde y actuadores", "Real", "PC de escritorio + programa Python (psutil + paho-mqtt) con ventana de actuadores",
+     "Carga de CPU (%)<br>Memoria RAM (%) · disco (%)<br>Electroválvula y LED de aviso UV (0/1)", "0 – 100 %<br>0 – 100 %<br>0 / 1",
+     "MQTT/TCP 1883, QoS 1, LWT", "RELAY ON/OFF + duración (auto-apagado), LED on/off, POWER, SET_INTERVAL, CALIBRATE, SET_MODE auto/manual"),
     ("DEV-03", "Estación meteo exterior", "API", "Azure Maps · Get Current Conditions",
      "Temperatura y sensación (°C)<br>HR (%) · punto de rocío<br>Índice UV · nubosidad (%)<br>Viento/ráfaga (km/h) · presión (hPa)<br>Lluvia 1 h / 24 h (mm)",
      "18 – 34 °C<br>40 – 100 %<br>0 – 11+ · 0 – 100 %<br>0 – 25 km/h · 1005 – 1020 hPa<br>0 – 50 mm", "HTTPS REST (polling 10 min) → MQTT",
@@ -90,9 +90,9 @@ DEVICES = [
     ("DEV-05", "Polisombra motorizada", "Gemelo digital", "Modelo: geometría solar + Kasten-Czeplak",
      "Cierre de malla (%)<br>Corriente motor (A)<br>Radiación exterior / filtrada (W/m²)", "0 – 100 %<br>0,0 – 2,5 A<br>0 – 1000 / 200 – 600 W/m²",
      "MQTT/TCP", "SET_SHADE 0–100 %, SET_MODE auto/manual"),
-    ("DEV-06", "Bomba y caudalímetro de goteo", "Gemelo digital", "Modelo: curva de bomba P = P0 − aQ²",
-     "Caudal (L/min)<br>Presión de línea (PSI)<br>Consumo diario (L)", "0 – 45 L/min<br>15 – 35 PSI<br>0 – 5000 L",
-     "MQTT/TCP", "START/STOP + duración, SET_FLOW, LEAK (prueba de interlock), RESET_TOTAL"),
+    ("DEV-06", "Bomba de goteo y humedad del suelo", "Gemelo digital", "Modelo: curva de bomba P = P0 − aQ² + balance hídrico del suelo",
+     "Humedad del suelo (%)<br>Caudal (L/min)<br>Presión de línea (PSI)<br>Consumo diario (L)", "35 – 60 %<br>0 – 45 L/min<br>15 – 35 PSI<br>0 – 5000 L",
+     "MQTT/TCP", "START/STOP + duración, SET_THRESHOLD (umbral de riego), SET_FLOW, LEAK (prueba de interlock), RESET_TOTAL"),
     ("DEV-07", "Cajón de fermentación #1", "Gemelo digital", "Modelo: fases levadura → acética",
      "Temperatura de la masa (°C)<br>pH del mucílago<br>Horas de fermentación (h) · volteos", "35 – 50 °C<br>3,8 – 5,2<br>0 – 144 h",
      "MQTT/TCP", "VOLTEO (−3 °C, oxigena), RESET_CYCLE, SET_MODE"),
@@ -161,7 +161,7 @@ def build():
 <li><b>Poscosecha (beneficio).</b> La calidad de exportación depende de que la <b>fermentación</b> alcance 45–50 °C de forma controlada (con volteos que oxigenan la masa) y de que el <b>secado</b> en marquesina reduzca la humedad del grano del 55 % al 7 % (NTC 1252) sin sobrecalentarlo ni rehumedecerlo con lluvias repentinas.</li>
 </ul>
 <h3>Propuesta de solución</h3>
-<p><b>CacaoSmart IoT</b> es un ecosistema de agricultura de precisión desplegado en infraestructura propia en la nube (Azure) con URL propia y HTTPS. Integra telemetría en tiempo real de campo (2 nodos ESP32 reales y 4 gemelos digitales), condiciones y pronósticos meteorológicos hiperlocales (API Azure Maps Weather), datos históricos (datasets ERA5 de la cosecha 2025 y una curva ideal de secado) y un <b>motor de reglas</b> que ejecuta <b>acciones de retroceso</b> sobre riego, sombreo, fermentación y secado. Toda la información se visualiza en Grafana con estadísticos ajustables en el tiempo, y un panel web permite operar cada dispositivo (encender, apagar, calibrar, ajustar).</p>
+<p><b>CacaoSmart IoT</b> es un ecosistema de agricultura de precisión desplegado en infraestructura propia en la nube (Azure) con URL propia y HTTPS. Integra telemetría en tiempo real de campo (2 dispositivos reales —un iPhone y un PC— y 4 gemelos digitales), condiciones y pronósticos meteorológicos hiperlocales (API Azure Maps Weather), datos históricos (datasets ERA5 de la cosecha 2025 y una curva ideal de secado) y un <b>motor de reglas</b> que ejecuta <b>acciones de retroceso</b> sobre riego, sombreo, fermentación y secado. Toda la información se visualiza en Grafana con estadísticos ajustables en el tiempo, y un panel web permite operar cada dispositivo (encender, apagar, calibrar, ajustar).</p>
 <h3>Objetivos</h3>
 <ol><li>Monitorear en tiempo real 10 dispositivos con múltiples variables durante al menos 4–6 días.</li>
 <li>Automatizar decisiones críticas con 5 lazos de control: protección solar, riego predictivo, calibración remota, volteo de fermentación y control de secado.</li>
@@ -172,14 +172,14 @@ def build():
 <p>La solución sigue una arquitectura de <b>cuatro capas</b> (percepción, transporte, procesamiento y aplicación), alineada con la arquitectura de referencia vista en clase: dispositivos heterogéneos → bróker de mensajería → servicios en la nube (front, back, base de datos y análisis) → visualización. Todos los servicios corren como contenedores Docker en una máquina virtual de Azure.</p>
 <figure class="arch">{arch}<figcaption><b>Figura {next(n)}.</b> Arquitectura de referencia de CacaoSmart IoT: flujo de datos (uplink), retroceso (downlink) y servicios.</figcaption></figure>
 {table(["Capa", "Componentes", "Función"], [
-    ["1 · Percepción y actuación", "ESP32 (DEV-01/02), gemelos Python (DEV-05…08), adaptadores API (DEV-03/04), reproductores de datasets (DEV-09/10)", "Medir variables, ejecutar comandos (relé, LED, motor, extractores) y confirmar con ACK"],
+    ["1 · Percepción y actuación", "iPhone y PC reales (DEV-01/02), gemelos Python (DEV-05…08), adaptadores API (DEV-03/04), reproductores de datasets (DEV-09/10)", "Medir variables, ejecutar comandos (válvula, LED, alarma, motor, extractores) y confirmar con ACK"],
     ["2 · Transporte", "Eclipse Mosquitto 2.0 (MQTT 3.1.1 sobre TCP y WebSocket)", "Publicación/suscripción desacoplada, QoS 1, mensajes retenidos (device shadow), LWT, ACL"],
     ["3 · Procesamiento y persistencia", "Node-RED 4, Telegraf 1.32, InfluxDB 2.7", "Integración con Azure Maps, motor de reglas, API REST, ingesta y almacenamiento de series de tiempo"],
     ["4 · Aplicación", "Grafana 11, panel web (MQTT.js), Caddy 2", "Dashboards, estadísticos, alertas, control remoto y publicación HTTPS con URL propia"]])}
 <h3>Flujo de un dato y de un comando</h3>
-<ol><li><b>Uplink:</b> el ESP32 publica <code>cacaosmart/santander/lote1/dev-02/telemetry</code> (JSON, QoS 1) → Mosquitto → Telegraf lo escribe en InfluxDB (medición <i>telemetry</i>, etiquetas <i>device, zone, type</i>) y Node-RED lo evalúa en el motor de reglas.</li>
+<ol><li><b>Uplink:</b> el gemelo de riego publica <code>cacaosmart/santander/lote1/dev-06/telemetry</code> (JSON, QoS 1) → Mosquitto → Telegraf lo escribe en InfluxDB (medición <i>telemetry</i>, etiquetas <i>device, zone, type</i>) y Node-RED lo evalúa en el motor de reglas.</li>
 <li><b>Decisión:</b> si la humedad del suelo &lt; umbral, Node-RED consulta el último pronóstico de DEV-04 (Azure Maps) y decide regar, reducir o inhibir el riego.</li>
-<li><b>Downlink (retroceso):</b> Node-RED publica <code>{{"cmd":"RELAY","state":"ON","duration_min":15,"src":"rules","cid":"…"}}</code> en <code>…/dev-02/command</code> y <code>START</code> en la bomba DEV-06.</li>
+<li><b>Downlink (retroceso):</b> Node-RED publica <code>{{"cmd":"RELAY","state":"ON","duration_min":15,"src":"rules","cid":"…"}}</code> en <code>…/dev-02/command</code> (abre la electroválvula real del PC) y <code>START</code> en la bomba DEV-06.</li>
 <li><b>ACK:</b> el dispositivo ejecuta y responde en <code>…/status</code> (retenido) con <code>last_cmd.cid</code>, <code>ok</code> y <code>msg</code>; el panel y Grafana muestran la confirmación.</li></ol>
 
 <h2>3. Sensores y dispositivos</h2>
@@ -214,11 +214,11 @@ def build():
     ["Sobrecarga", "Muy baja (2 B)", "Alta (cabeceras texto)", "Muy baja (4 B)", "Media-alta"],
     ["Downlink al dispositivo", "Nativo (suscripción)", "Requiere polling", "Observe", "Nativo"],
     ["Presencia (LWT/retenidos)", "Sí", "No", "No", "Parcial"],
-    ["Soporte ESP32 / navegador", "Excelente", "Excelente", "Limitado en navegador", "Limitado en ESP32"],
+    ["Soporte microcontroladores / navegador", "Excelente", "Excelente", "Limitado en navegador", "Limitado en ESP32"],
     ["Uso en CacaoSmart", "<b>Principal</b>", "APIs externas, ingesta y API de comandos", "No usado", "No usado"]], "cmp")}
 
 <h2>5. Nube y servicios utilizados</h2>
-<p>La plataforma se despliega en una <b>máquina virtual Ubuntu 24.04 (B2s, 2 vCPU, 4 GB) de Microsoft Azure</b> con nombre DNS propio (<code>{E(CFG['url'])}</code>) y certificado TLS de Let's Encrypt emitido automáticamente por Caddy. El grupo de seguridad de red sólo abre 80/443 (web) y 1883 (MQTT para los ESP32). El despliegue completo es <i>infraestructura como código</i>: <code>docker compose up -d</code>.</p>
+<p>La plataforma se despliega en una <b>máquina virtual Ubuntu 24.04 (B2as v2, 2 vCPU, 8 GB, región North Central US) de Microsoft Azure</b> con nombre DNS propio (<code>{E(CFG['url'])}</code>) y certificado TLS de Let's Encrypt emitido automáticamente por Caddy. El grupo de seguridad de red sólo abre 80/443 (web) y 1883 (MQTT para los dispositivos). El despliegue completo es <i>infraestructura como código</i>: <code>docker compose up -d</code>.</p>
 {table(["Servicio", "Imagen / versión", "Rol en la arquitectura", "Exposición"], [
     ["Mosquitto", "eclipse-mosquitto:2.0.20", "Bróker MQTT (capa 2)", "1883 público · 9001 vía /mqtt"],
     ["Node-RED", "nodered/node-red:4.0.5", "Orquestador: Azure Maps, motor de reglas, API REST", "/api, /nodered (con clave)"],
@@ -235,12 +235,12 @@ def build():
 <p>Grafana se aprovisiona como código con <b>4 dashboards</b> (Visión general, Lote de cultivo, Beneficio y Clima/API/datasets). Todos los paneles de series de tiempo muestran en la leyenda el <b>promedio, máximo, mínimo y último valor</b>, recalculados automáticamente según el <b>selector de tiempo</b> (por defecto 6 días; ajustable a cualquier rango, con agregación dinámica <code>aggregateWindow(v.windowPeriod)</code>). Una tabla Flux calcula promedio, máximo, mínimo y número de muestras de 23 variables para el rango elegido; las anotaciones muestran cada comando de retroceso y cada alerta sobre las gráficas.</p>
 <h3>Reglas y alertas</h3>
 {table(["Regla (motor Node-RED / Grafana)", "Condición", "Acción de retroceso / notificación"], [
-    ["Lazo 1 · Protección solar", "UV (DEV-03) ≥ 8 · histéresis hasta UV ≤ 5", "SET_SHADE 80 % en DEV-05 + LED ON en DEV-01 (y vuelta a 30 %)"],
-    ["Lazo 2 · Riego predictivo", "Suelo (DEV-02) &lt; umbral (35 %)", "Lluvia &lt; 30 %: riego 15 min · 30–65 %: 8 min · &gt; 65 %: riego inhibido (ahorro hídrico) — relé DEV-02 + bomba DEV-06"],
-    ["Lazo 3 · Calibración remota", "Orden del operador (panel o API REST)", "CALIBRATE offset T/HR e intervalo 5–60 s en el ESP32 (persistido en NVS)"],
+    ["Lazo 1 · Protección solar", "UV (DEV-03) ≥ 8 · histéresis hasta UV ≤ 5", "SET_SHADE 80 % en DEV-05 + LED de aviso ON en DEV-02 (y vuelta a 30 %)"],
+    ["Lazo 2 · Riego predictivo", "Suelo (DEV-06) &lt; umbral (35 %)", "Lluvia &lt; 30 %: riego 15 min · 30–65 %: 8 min · &gt; 65 %: riego inhibido (ahorro hídrico) — electroválvula del PC (DEV-02) + bomba DEV-06"],
+    ["Lazo 3 · Calibración remota", "Orden del operador (panel o API REST)", "CALIBRATE de offsets e intervalo en cualquier dispositivo (p. ej. offset de ruido del iPhone)"],
     ["Lazo 4 · Fermentación", "Masa (DEV-07) &gt; 50 °C, o 48 h / 96 h sin volteo", "VOLTEO automático"],
     ["Lazo 5 · Secado", "Marquesina (DEV-08) &gt; 45 °C · &lt; 40 °C · lluvia", "Extractores ON + compuertas abiertas · extractores OFF · compuertas cerradas"],
-    ["Alerta Moniliasis (crítica)", "HR &gt; 88 % y T &gt; 26 °C sostenidos 4 h (DEV-01)", "Alerta + Telegram + regla Grafana"],
+    ["Alerta Moniliasis (crítica)", "HR &gt; 88 % y T &gt; 26 °C sostenidos 4 h (DEV-03)", "Alerta + Telegram + regla Grafana"],
     ["Alerta sobrecalentamiento (crítica)", "Marquesina &gt; 46 °C", "Alerta + Telegram + regla Grafana"],
     ["Alerta fuga (crítica)", "Presión &lt; 12 PSI con bomba encendida", "Interlock local en DEV-06 (parada de emergencia) + alerta"],
     ["Secado retrasado (info)", "Humedad real − ideal (DEV-10) &gt; 8 puntos", "Alerta informativa"],
@@ -248,22 +248,22 @@ def build():
 <p class="note">El motor de reglas usa un patrón de <b>reconciliación</b> (compara el estado deseado con el reportado en <code>status</code>) con tiempos de enfriamiento, lo que evita oscilaciones y respeta el <b>modo manual</b>: si el operador pone un dispositivo en manual, las órdenes automáticas son rechazadas por el propio dispositivo.</p>
 
 <h2>7. Análisis de gráficas y comportamiento (con IA)</h2>
-<p>Periodo analizado: <b>{ini} → {fin}</b> ({per['dias']} días). Para cada dispositivo se presentan las gráficas y los estadísticos calculados con <code>analysis/charts.py</code>. El texto de análisis fue generado por un modelo de lenguaje multimodal (<b>Claude, Anthropic</b>) a partir de las gráficas y los estadísticos (<code>analysis/ai_analyst.py</code>) y revisado por el equipo.</p>
+<p>Periodo analizado: <b>{ini} → {fin}</b> ({per['dias']} días). Para cada dispositivo se presentan las gráficas y los estadísticos calculados con <code>analysis/charts.py</code>. El texto de análisis fue generado por un modelo de lenguaje multimodal (<b>Claude, Anthropic</b>) a partir de las gráficas y los estadísticos reales del periodo, y revisado por el equipo (el script <code>analysis/ai_analyst.py</code> permite regenerarlo automáticamente vía API).</p>
 {banner}
 <h3>7.1 Clima exterior · DEV-03 y DEV-04 (API Azure Maps)</h3>
 {fig("dev03.png", "Condiciones actuales de Azure Maps: temperatura vs. sensación térmica vs. 2025, índice UV y humedad/nubosidad.", next(n))}
 {stats_rows("dev-03")}
 {fig("dev04.png", "Pronóstico horario de Azure Maps: probabilidad de lluvia y precipitación esperada.", next(n))}
 {stats_rows("dev-04")}
-<h3>7.2 Microclima y suelo · DEV-01 y DEV-02 (ESP32 reales)</h3>
-{fig("dev01.png", "Nodo microclima: temperatura, humedad relativa y luminosidad bajo el dosel.", next(n))}
+<h3>7.2 Dispositivos reales · DEV-01 (iPhone) y DEV-02 (PC)</h3>
+{fig("dev01.png", "iPhone real: nivel de ruido del micrófono y movimiento (acelerómetro), con las alarmas remotas enviadas.", next(n))}
 {stats_rows("dev-01")}
-{fig("dev02.png", "Nodo de suelo: humedad volumétrica, umbral, eventos de riego y batería.", next(n))}
+{fig("dev02.png", "PC real: recursos del equipo de borde y actuadores (electroválvula y LED) accionados por el retroceso.", next(n))}
 {stats_rows("dev-02")}
-<h3>7.3 Polisombra y riego · DEV-05 y DEV-06 (gemelos digitales)</h3>
+<h3>7.3 Polisombra, riego y suelo · DEV-05 y DEV-06 (gemelos digitales)</h3>
 {fig("dev05.png", "Gemelo de la polisombra: radiación exterior vs. filtrada y cierre de la malla.", next(n))}
 {stats_rows("dev-05")}
-{fig("dev06.png", "Gemelo de la bomba de goteo: caudal, presión y consumo diario.", next(n))}
+{fig("dev06.png", "Gemelo de la bomba de goteo: caudal, presión, consumo diario y humedad del suelo frente al umbral y a 2025.", next(n))}
 {stats_rows("dev-06")}
 <h3>7.4 Fermentación · DEV-07 (gemelo digital)</h3>
 {fig("dev07.png", "Gemelo del cajón de fermentación: temperatura de la masa, volteos y pH.", next(n))}
@@ -286,8 +286,9 @@ def build():
 {table(["Tipo", "Evento", "Cantidad"], [[("Comando" if k == "command" else "Alerta"), f"<code>{nm}</code>", v] for (k, nm), v in sorted(tipos.items())])}
 <h3>Prueba funcional en vivo (sustentación)</h3>
 {table(["Prueba", "Cómo se ejecuta", "Resultado esperado"], [
-    ["Calibración del ESP32", "Panel → DEV-01 → CALIBRATE offset −0,8 °C, muestreo 15 s", "ACK ✔ en ~1 s, el valor de temperatura baja 0,8 °C y llega cada 15 s"],
-    ["Riego predictivo", "Panel → DEV-02 → SET_THRESHOLD 60 %", "En la siguiente lectura el motor ordena RELAY ON + START bomba (alerta “riego automático”)"],
+    ["Alarma en el iPhone", "Panel → DEV-01 → ALARMA on", "En ~1 s la pantalla del iPhone se pone naranja y suena; ACK ✔ en el panel"],
+    ["Actuadores del PC", "Panel → DEV-02 → LED on · RELAY ON 1 min", "La ventana del PC enciende el LED / abre la válvula y se apaga sola al minuto; ACK ✔"],
+    ["Riego predictivo", "Panel → DEV-06 → SET_THRESHOLD 60 %", "En la siguiente lectura el motor abre la válvula del PC (RELAY ON) y arranca la bomba (alerta “riego automático”)"],
     ["Interlock de fuga", "Panel → DEV-06 → START y luego LEAK on", "Presión &lt; 12 PSI → parada de emergencia local + alerta crítica en el panel"],
     ["Modo manual", "DEV-05 → SET_MODE manual; esperar UV ≥ 8", "La orden automática SET_SHADE es rechazada (ACK ✖ “modo manual”)"],
     ["Apagado de sensor", "POWER off en cualquier dispositivo", "La serie se interrumpe en Grafana; POWER on la reanuda"],
@@ -300,7 +301,7 @@ def build():
 <li>El <b>retroceso</b> es el núcleo del sistema: cinco lazos de control conectan variables de distintos dispositivos (p. ej. el pronóstico de Azure Maps decide si un relé físico se activa) y cada orden queda confirmada (ACK) y trazada.</li>
 <li>Los <b>gemelos digitales basados en física</b> y alimentados con clima real producen comportamientos interpretables (ciclos diarios, fases de fermentación, secado escalonado) que permiten validar reglas antes de llevarlas al campo.</li>
 <li>La comparación con <b>referencias históricas e ideales</b> (datasets) convierte los datos en decisiones: detectar un secado retrasado o un año más cálido de lo normal.</li>
-<li>Trabajo futuro: TLS en el puerto MQTT de los ESP32 (8883), modelos predictivos de Moniliasis con aprendizaje automático y despliegue de una malla de sombra sobre la marquesina.</li>
+<li>Trabajo futuro: TLS en el puerto MQTT 1883 (8883), nodos ESP32 de campo con sensores de suelo, modelos predictivos de Moniliasis con aprendizaje automático y despliegue de una malla de sombra sobre la marquesina.</li>
 </ul>
 
 <h2>10. Referencias</h2>

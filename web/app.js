@@ -9,9 +9,9 @@ const REGION = 'santander';
 const VIEWER = { username: 'viewer', password: 'viewer' };   // usuario público de sólo lectura (ACL)
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/mqtt`;
 
-const T = { real: 'Real · ESP32', api: 'API · Azure Maps', twin: 'Gemelo digital', dataset: 'Dataset' };
+const T = { real: 'Real', api: 'API · Azure Maps', twin: 'Gemelo digital', dataset: 'Dataset' };
 const ACCENT = { real: '#7fb069', api: '#5b8def', twin: '#b565d8', dataset: '#d4a24c' };
-const PROTO = { real: 'MQTT/TCP', api: 'HTTPS REST → MQTT', twin: 'MQTT/TCP', dataset: 'MQTT', 'dev-10': 'HTTP REST' };
+const PROTO = { real: 'MQTT/TCP', api: 'HTTPS REST → MQTT', twin: 'MQTT/TCP', dataset: 'MQTT', 'dev-10': 'HTTP REST', 'dev-01': 'MQTT sobre WSS' };
 
 // ---------------------------------------------------------------- catálogo de dispositivos
 const N = (name, cmd, extra = {}) => ({ name, cmd, ...extra });
@@ -23,18 +23,18 @@ const COMMON = [N('Intervalo de muestreo', 'SET_INTERVAL', { fields: [num('value
                 N('Ping (verifica ACK)', 'PING')];
 
 const DEVICES = {
-  'dev-01': { zone: 'lote1', type: 'real', title: 'Nodo microclima lote 1', hw: 'ESP32 + DHT22 + LDR',
-    vars: [['temp_c', 'Temperatura', '°C', 1], ['hr_pct', 'Humedad rel.', '%', 1], ['luz_lux', 'Luz', 'lux', 0], ['rssi_dbm', 'Wi-Fi RSSI', 'dBm', 0]],
-    ctl: [N('Calibración remota (Lazo 3)', 'CALIBRATE', { desc: 'Offset de temperatura y frecuencia de muestreo sin reprogramar el ESP32.',
-            fields: [num('temp_offset', 'offset T (°C)', -0.8, -5, 5, 0.1), num('hr_offset', 'offset HR (%)', 0, -10, 10, 0.5), num('interval_sec', 'muestreo (s)', 10, 5, 60)] }),
-          N('LED indicador', 'LED', { fields: [sel('state', 'estado', ['on', 'off'])] }),
-          N('Borrar calibración', 'RESET_CALIBRATION'), N('Reiniciar nodo', 'REBOOT', { danger: true })] },
-  'dev-02': { zone: 'lote1', type: 'real', title: 'Nodo suelo y riego', hw: 'ESP32 + capacitivo + relé',
-    vars: [['humedad_suelo_pct', 'Humedad suelo', '%', 1], ['valvula', 'Electroválvula', '', 0, true], ['bateria_v', 'Batería', 'V', 2], ['umbral_pct', 'Umbral riego', '%', 0]],
-    ctl: [N('Riego manual (relé)', 'RELAY', { fields: [sel('state', 'relé', ['ON', 'OFF']), num('duration_min', 'minutos', 15, 1, 120)] }),
-          N('Umbral mínimo de disparo', 'SET_THRESHOLD', { fields: [num('value', '% humedad', 35, 10, 60)] }),
-          N('Modo de operación', 'SET_MODE', { desc: 'En manual el nodo ignora las órdenes automáticas del motor de reglas.', fields: [sel('value', 'modo', ['auto', 'manual'])] }),
-          N('Calibrar sensor capacitivo', 'CALIBRATE', { fields: [num('dry_raw', 'ADC en aire', 3050, 0, 4095), num('wet_raw', 'ADC en agua', 1250, 0, 4095)] })] },
+  'dev-01': { zone: 'lote1', type: 'real', title: 'Nodo móvil de campo', hw: 'iPhone real · página web de sensores',
+    vars: [['movimiento', 'Movimiento', 'm/s²', 3], ['ruido_dbfs', 'Ruido', 'dBFS', 1]],
+    ctl: [N('Alarma en el iPhone (actuador)', 'ALARMA', { desc: 'La pantalla del iPhone se pone naranja y suena un pitido.', fields: [sel('state', 'alarma', ['on', 'off'])] }),
+          N('Calibración remota (Lazo 3)', 'CALIBRATE', { desc: 'Offset del nivel de ruido y frecuencia de envío.',
+            fields: [num('ruido_offset', 'offset ruido (dB)', 0, -30, 30, 0.5), num('interval_sec', 'enviar cada (s)', 30, 5, 600)] }),
+          N('Borrar calibración', 'RESET_CALIBRATION')] },
+  'dev-02': { zone: 'lote1', type: 'real', title: 'Estación de borde del lote', hw: 'PC real · python.py + gateway iPhone',
+    vars: [['bateria_pct', 'Batería', '%', 0], ['wifi_pct', 'Señal Wi-Fi', '%', 0], ['cpu_pct', 'CPU', '%', 0], ['valvula', 'Válvula', '', 0, true]],
+    ctl: [N('Válvula de riego (actuador)', 'RELAY', { desc: 'Se ve en la ventana del portátil y suena un pitido.', fields: [sel('state', 'válvula', ['ON', 'OFF']), num('duration_min', 'minutos', 1, 1, 120)] }),
+          N('LED de aviso UV (actuador)', 'LED', { fields: [sel('state', 'estado', ['on', 'off'])] }),
+          N('Calibración remota (Lazo 3)', 'CALIBRATE', { fields: [num('wifi_offset', 'offset Wi-Fi (%)', 0, -30, 30, 1), num('interval_sec', 'muestreo (s)', 15, 5, 600)] }),
+          N('Modo de operación', 'SET_MODE', { desc: 'En manual la estación ignora las órdenes automáticas del motor de reglas.', fields: [sel('value', 'modo', ['auto', 'manual'])] })] },
   'dev-03': { zone: 'clima', type: 'api', title: 'Estación meteo exterior', hw: 'Azure Maps · Current Conditions',
     vars: [['temp_c', 'Temperatura', '°C', 1], ['hr_pct', 'Humedad rel.', '%', 0], ['uv_index', 'Índice UV', '', 0], ['viento_kmh', 'Viento', 'km/h', 1]],
     ctl: [N('Intervalo de polling', 'SET_INTERVAL', { desc: 'Mínimo 60 s para cuidar la cuota de Azure Maps.', fields: [num('value', 'segundos', 600, 60, 3600, 60)] }),
@@ -50,10 +50,11 @@ const DEVICES = {
     vars: [['cierre_pct', 'Cierre malla', '%', 0], ['rad_filtrada_wm2', 'Rad. filtrada', 'W/m²', 0], ['rad_ext_wm2', 'Rad. exterior', 'W/m²', 0], ['corriente_a', 'Corriente motor', 'A', 2]],
     ctl: [N('Cierre de la polisombra', 'SET_SHADE', { fields: [rng('value', '% de cierre', 50, 0, 100, 5)] }),
           N('Modo de operación', 'SET_MODE', { fields: [sel('value', 'modo', ['auto', 'manual'])] })] },
-  'dev-06': { zone: 'lote1', type: 'twin', title: 'Bomba y caudalímetro de goteo', hw: 'Gemelo · bomba centrífuga',
-    vars: [['caudal_lpm', 'Caudal', 'L/min', 1], ['presion_psi', 'Presión', 'PSI', 1], ['consumo_l', 'Consumo hoy', 'L', 0], ['bomba', 'Bomba', '', 0, true]],
+  'dev-06': { zone: 'lote1', type: 'twin', title: 'Bomba de goteo y suelo del lote', hw: 'Gemelo · bomba + suelo',
+    vars: [['humedad_suelo_pct', 'Humedad suelo', '%', 1], ['caudal_lpm', 'Caudal', 'L/min', 1], ['presion_psi', 'Presión', 'PSI', 1], ['bomba', 'Bomba', '', 0, true]],
     ctl: [N('Encender bomba', 'START', { fields: [num('duration_min', 'minutos', 10, 1, 120), num('flow', 'L/min', 30, 5, 45)] }),
           N('Apagar bomba', 'STOP'),
+          N('Umbral de riego (Lazo 2)', 'SET_THRESHOLD', { desc: 'Si la humedad del suelo baja de este valor se consulta el pronóstico y se riega.', fields: [num('value', '% humedad', 35, 10, 60)] }),
           N('Caudal objetivo', 'SET_FLOW', { fields: [rng('value', 'L/min', 30, 5, 45)] }),
           N('Simular fuga (prueba del interlock)', 'LEAK', { desc: 'La presión cae < 12 PSI y la bomba se apaga sola (seguridad en el borde).', fields: [sel('state', 'fuga', ['on', 'off'])], danger: true })] },
   'dev-07': { zone: 'beneficio', type: 'twin', title: 'Cajón de fermentación #1', hw: 'Gemelo · masa de cacao',
